@@ -1,0 +1,43 @@
+vlan 10
+ name USUARIOS
+
+vlan 20
+ name WEB
+
+vlan 30
+ name DATABASE
+
+interface GigabitEthernet0/0
+ description TRUNK_FW1
+ switchport trunk encapsulation dot1q
+ switchport mode trunk
+ switchport trunk allowed vlan 10,20,30
+ no shutdown
+
+interface GigabitEthernet0/1
+ description PC-USR_VLAN10
+ switchport access vlan 10
+ switchport mode access
+ switchport port-security violation restrict
+ switchport port-security mac-address sticky
+ switchport port-security mac-address sticky 0cde.5edb.0000
+ switchport port-security
+ no shutdown
+
+interface GigabitEthernet0/2
+ description WEB01_VLAN20
+ switchport mode access
+ switchport access vlan 20
+ no shutdown
+
+interface GigabitEthernet0/3
+ description DB01_VLAN30
+ switchport mode access
+ switchport access vlan 30
+ no shutdown
+
+interface GigabitEthernet1/0
+ description FIREFOX-USR_VLAN10
+ switchport mode access
+ switchport access vlan 10
+ no shutdown

@@ -1,0 +1,32 @@
+hostname R1
+
+interface FastEthernet0/0
+ description ENLACE_FW1
+ ip address 172.16.0.2 255.255.255.252
+ ip nat inside
+ no shutdown
+
+interface FastEthernet0/1
+ description INTERNET
+ ip address dhcp
+ ip nat outside
+ no shutdown
+
+interface FastEthernet1/0
+ description ENLACE_BANCO2
+ ip address 10.0.0.6 255.255.255.252
+ no shutdown
+
+interface FastEthernet2/0
+ description ENLACE_BANCO4
+ ip address 10.0.0.9 255.255.255.252
+ no shutdown
+
+ip route 172.16.1.0 255.255.255.0 172.16.0.1
+ip route 172.16.2.0 255.255.255.248 172.16.0.1
+ip route 172.16.3.0 255.255.255.248 172.16.0.1
+
+access-list 1 permit 172.16.0.0 0.0.255.255
+ip nat inside source list 1 interface FastEthernet0/1 overload
+
+ip nat inside source static tcp 172.16.2.2 80 interface FastEthernet0/1 80
