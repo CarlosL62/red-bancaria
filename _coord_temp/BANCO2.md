@@ -21,7 +21,7 @@ Interfaces adicionales (no interbancarias):
 ip route 10.0.0.0 255.255.255.252 10.0.0.1 track 1     ! B1 directo (AD 1)
 ip route 10.0.0.8 255.255.255.252 10.0.0.6 track 6     ! B4 vía B3 (AD 1)
 ip route 10.0.0.12 255.255.255.252 10.0.0.1 track 5    ! B5 vía B1 (AD 1)
-ip route 10.0.0.16 255.255.255.252 10.0.0.1 track 5    ! B5-B1 vía B1 (AD 1)
+ip route 10.0.0.16 255.255.255.252 10.0.0.1 track 1    ! B5-B1 vía B1 (AD 1) [2026-09-07]
 ip route 0.0.0.0 0.0.0.0 192.168.100.1                  ! Default hacia ISP
 ip route 10.20.0.0 255.255.0.0 10.20.0.2                ! LAN interna hacia R-LAN
 ```
@@ -31,8 +31,10 @@ ip route 10.20.0.0 255.255.0.0 10.20.0.2                ! LAN interna hacia R-LA
 ip route 10.0.0.8 255.255.255.252 10.0.0.1 100 track 7 ! B4 vía B1 (resp. de B3)
 ip route 10.0.0.12 255.255.255.252 10.0.0.6 100 track 8 ! B5 vía B3 (resp. de B1)
 ip route 10.0.0.16 255.255.255.252 10.0.0.6 100 track 8 ! B5-B1 vía B3 (resp. de B1)
+ip route 10.0.0.0 255.255.255.224 Null0 250             ! descarte del anillo [2026-09-07]
 ```
-> Las flotantes **no** se instalan si su track está Down. Así se evita rebotar tráfico hacia un vecino que no puede entregar el destino.
+> Las flotantes **no** se instalan si su track está Down. Así no se envía tráfico a un vecino que no puede entregar el destino.
+> El `Null0` cubre los cinco enlaces del anillo (`10.0.0.0/27`); solo actúa cuando no existe ruta más específica, evitando que tráfico interbancario se filtre al ISP por el default.
 
 ## IP SLA
 Período de sonda 5 s, timeout 1000 ms, agendadas `life forever start-time now`:
@@ -47,11 +49,11 @@ ip sla monitor 6: type echo 10.0.0.17 source-interface FastEthernet3/0   ! B5 v�
 
 ## Tracks
 ```text
-track 1 rtr 1 reachability   ! B1 directo               -> UP
+track 1 rtr 1 reachability   ! B1 directo               -> UP (RTT ~15 ms)
 track 2 rtr 2 reachability   ! B3 directo               -> UP
-track 3 rtr 3 reachability   ! B5 vía B1                -> DOWN
+track 3 rtr 3 reachability   ! B5 vía B1                -> UP (post-reconexión cable este B1-B5)
 track 4 rtr 4 reachability   ! B4 vía B3                -> DOWN
-track 5 list boolean and (obj 1 y 3) ! B1 directo Y B5 vía B1 -> DOWN
+track 5 list boolean and (obj 1 y 3) ! B1 directo Y B5 vía B1 -> UP
 track 6 list boolean and (obj 2 y 4) ! B3 directo Y B4 vía B3 -> DOWN
 track 7 rtr 5 reachability   ! B4 vía B1 (gate flotante .8/30) -> DOWN
 track 8 rtr 6 reachability   ! B5 vía B3 (gate flotantes .12/30 y .16/30) -> DOWN
@@ -75,55 +77,54 @@ ip nat inside source static tcp 10.20.1.34 5001 interface FastEthernet2/0 5001  
 
 ## Servicios interbancarios publicados
 * Publicación TCP `10.0.0.2:5001` -> `10.20.1.34:5001` (estática). Estado del servicio interno: PENDIENTE DE CONFIRMACIÓN POR BANCO 2.
-* No se ha confirmado aún el endpoint HTTP `/interbancaria` equivalente al de los demás bancos. PENDIENTE DE CONFIRMACIÓN POR BANCO 2.
+* Endpoint HTTP `/interbancaria`: PENDIENTE DE CONFIRMACIÓN POR BANCO 2.
 
-## Pruebas de conectividad
-* `B1 directo (10.0.0.1)`: inestable / no responde establemente (SLA 1 con fallos; B1 flapeando). Track 3/5 DOWN.
-* `B3 directo (10.0.0.6)`: UP (SLA 2 OK, track 2 UP).
-* `B4 vía B1 (10.0.0.10)`: Timeout (SLA 5: 0 éxitos / ~682 fallos).
-* `B5 vía B1 (10.0.0.17)`: Timeout (SLA 3: 0 éxitos).
-* `B4 vía B3 (10.0.0.10)`: Timeout (SLA 4: 0 éxitos / ~700+ fallos).
-* `B5 vía B3 (10.0.0.17)`: Timeout (SLA 6: 0 éxitos / ~682 fallos).
+## Pruebas de conectividad (2026-09-07, verificación posterior al cambio)
+* `B1 directo (10.0.0.1)`: UP — SLA 1 RTT ~15 ms, track 1 UP.
+* `B5 vía B1 (10.0.0.17)`: UP — ping 5/5 (RTT ~20 ms), track 3 UP (cable este B1-B5 reconectado por Banco 1).
+* `traceroute 10.0.0.18` (B1 lado este): **1 hop por el anillo** `10.0.0.1` (ya no sale al ISP).
+* `B4 vía B3 (10.0.0.10)`: Timeout (SLA 4, track 4/6 DOWN).
+* `B4 vía B1 (10.0.0.10)`: Timeout (SLA 5, track 7 DOWN).
+* `B5 vía B3 (10.0.0.17)`: Timeout (SLA 6, track 8 DOWN) — el lado oeste (B3-B4-B5) sigue sin resolver.
 
 ## Failover
-* Detección de fallo con IP SLA 1-6 + object tracking; rutas primarias condicionadas a track (1, 5, 6) y flotantes condicionadas a track (7, 8).
-* Cuando cae un track, la ruta primaria asociada se retira de la tabla y solo se instala la flotante si su propio track está Up.
-* **Resultado:** con la caída actual de B1, la tabla no tiene ruta hacia `10.0.0.16/30`; Banco 2 **no** reenvía ese tráfico hacia B3.
+* Detección con IP SLA 1-6 + object tracking; primarias condicionadas a track (1, 5, 6) y flotantes a track (7, 8).
+* **Protección final:** `Null0 /27` del anillo: si no hay ruta utilizable, el tráfico `10.0.0.0/30`..`10.0.0.16/30` se descarta localmente en vez de filtrarse a Internet por el default.
+* Con el estado actual, `10.0.0.16/30` y `10.0.0.12/30` se enrutan por B1 (arco corto); `10.0.0.8/30` (enlace B3-B4) no tiene camino y cae al `Null0`.
 
-## ATENCIÓN: posible rebote hacia `10.0.0.16/30` (reportado por Banco 3)
-**Ruta activa en este momento hacia `10.0.0.16/30`:** NINGUNA (`show ip route 10.0.0.16` -> "Subnet not in table"). track 5 y track 8 están DOWN.
+## ATENCIÓN: rebote hacia `10.0.0.16/30` (reportado por Banco 3) — RESUELTO
+**Ruta activa en este momento:** `10.0.0.16/30` via `10.0.0.1` (track 1) — instalada en RIB.
 
 | Parámetro | Valor |
 |---|---|
 | Next-hop primario | `10.0.0.1` (B1), AD 1 |
-| Track asociado a la primaria | `track 5` (boolean AND: B1 directo Y B5 vía B1) |
+| Track asociado a la primaria | `track 1` (B1 directo) — solo exige a B1, no a B5 |
 | Next-hop de respaldo | `10.0.0.6` (B3), AD 100 |
 | Track asociado al respaldo | `track 8` (B5 vía B3) |
+| Protección final | `Null0 10.0.0.0/27` (AD 250) |
 
-**Por qué el tráfico podría volver a `10.0.0.6`:**
-1. El respaldo para `10.0.0.16/30` apunta a `10.0.0.6` (B3). Si B1 cae (track 5 DOWN) pero B5 sigue siendo alcanzable vía B3 (track 8 UP), Banco 2 instala la flotante y envía el tráfico hacia B3. Eso es redundancia válida **solo si** B3 no lo devuelve.
-2. **Riesgo de rebote mutuo:** si en ese mismo momento B3 tiene activa su propia flotante hacia `10.0.0.5` para la misma red (al detectar a B1 inalcanzable por su lado y apuntar su respaldo a Banco 2), los dos bancos se devuelven el paquete alternando `10.0.0.5 -> 10.0.0.6 -> 10.0.0.5 ...` hasta agotar TTL. Esa es la traza reportada por Banco 3.
-3. **Estado actual:** no ocurre, porque track 8 está DOWN (SLA 6 a B5 vía B3 en Timeout). Con track 8 Down la flotante no se instala y Banco 2 descarta el tráfico a `10.0.0.16/30` en vez de rebotarlo hacia B3.
-4. La observación de Banco 3 corresponde a la configuración **anterior** de Banco 2, que tenía una flotante sin track para `10.0.0.16/30`; se instalaba en cuanto caía la primaria y Banco 2 rebotaba el tráfico hacia B3. Corregido el 2026-09-07 con flotantes condicionadas a track.
+**Cambio aplicado 2026-09-07 (aprobado por usuario):**
+1. La primaria a `10.0.0.16/30` pasó de `track 5` (exigía B1 **y** B5 vía B1) a `track 1` (solo exige B1). `10.0.0.18` es la **propia interfaz de B1**, así que con B1 vivo la ruta debe estar activa. Antes, con track 5 Down, la ruta ausente hacía que `traceroute 10.0.0.18` saliera por el default al ISP (`192.168.100.1 -> 192.168.1.1 -> 10.93.192.1 -> * * *`).
+2. Se añadió `Null0` `/27` del anillo para que ningún tráfico interbancario se filtre a Internet cuando no haya camino.
 
-**Acción recomendada (requiere aprobación y no ejecutada):** coordinar con Banco 3 que su flotante hacia `10.0.0.5` para `10.0.0.16/30` quede también condicionada a un track de alcanzabilidad real, para eliminar el rebote mutuo cuando haya redundancia activa en ambos lados.
+**Por qué podía volver a `10.0.0.6`:** el respaldo de `10.0.0.16/30` apunta a B3; si se activaba (track 8 Up) mientras B3 tenía su flotante hacia `10.0.0.5` activa para la misma red, ambos se devolvían el paquete (`10.0.0.5 <-> 10.0.0.6`) hasta agotar TTL. Eso requería redundancia mutua simultánea; con la flotante condicionada a track 8 y el `Null0` final, Banco 2 **ya no rebota** ni filtra esa red.
 
 ## Problemas conocidos
-* Banco 1 (`10.0.0.1` y `10.0.0.18`) inalcanzable/inestable desde Banco 2; B1 flapeando. PENDIENTE DE CONFIRMACIÓN POR BANCO 1.
-* Fallo end-to-end vía ambos sentidos hacia B4/B5 (SLAs 3-6 en timeout). PENDIENTE DE CONFIRMACIÓN POR BANCO 4 y BANCO 5.
-* Bucle B4-B5 hacia `10.0.0.0/30` documentado por Banco 3 (B5 devuelve tráfico a B4). PENDIENTE DE CONFIRMACIÓN POR BANCO 5.
-* Ruta de retorno faltante en B4 para `10.0.0.4/30` vía `10.0.0.9` (impide respuestas hacia B2). PENDIENTE DE CONFIRMACIÓN POR BANCO 4.
+* **Lado oeste sin resolver:** B3-B4 (track 4), B4 vía B1 (track 7) y B5 vía B3 (track 8) siguen DOWN. `10.0.0.8/30` (enlace B3-B4) no es alcanzable por ningún camino y cae al `Null0`. Implicaría que B4/B5 lado B3 no responden o falta ruta de retorno. PENDIENTE DE CONFIRMACIÓN POR BANCO 4 y BANCO 5.
+* Ruta de retorno en B4 para `10.0.0.4/30` vía `10.0.0.9`: sigue sin confirmarse (PENDIENTE DE CONFIRMACIÓN POR BANCO 4). Es causal probable del fallo SLA 4/6.
+* Endpoint `/interbancaria` de Banco 2 sin implementar/validar.
+* Banco 1 reporta residuals de config propia (`ip route 10.0.0.4` sin track) — su acción.
 
 ## Cambios recientes
-* 2026-09-07: Se reemplazaron las rutas flotantes **sin** track por flotantes **condicionadas a track** (7 y 8) y se eliminaron flotantes inertes, eliminando el rebote de `10.0.0.8/30`, `10.0.0.12/30` y `10.0.0.16/30` hacia B1/B3. Se guardó con `write memory`.
+* 2026-09-07 (1): flotantes sin track -> flotantes condicionadas a tracks 7/8; flotantes inertes eliminadas; `write memory`.
+* 2026-09-07 (2, aprobado): primaria `10.0.0.16/30` de `track 5` a `track 1`; añadido `Null0 10.0.0.0/27` (AD 250); verificado traceroute a `.18` por el anillo y ping a `.17` 5/5; `write memory`.
 
 ## Pendientes
-* Confirmar estado del servicio publicado (`10.20.1.34:5001`) y del endpoint `/interbancaria`.
-* Confirmar con Banco 1 la estabilidad de `10.0.0.1`.
-* Coordinar con Banco 3 la condición de track sobre su flotante hacia `10.0.0.16/30`.
+* Confirmar convergencia del lado oeste (B3/B4/B5) para restablecer `10.0.0.8/30` y los respaldos por B3.
+* Confirmar estado del servicio publicado (`10.20.1.34:5001`) y endpoint `/interbancaria`.
+* Revalidar con Banco 1/3 la estabilidad de `10.0.0.1` y `10.0.0.18` (cable este reconectado).
 
 ## Notas para otros bancos
-* Banco 2 usa flotantes condicionadas a track: no envía tráfico a un vecino que no puede entregarlo.
-* Se solicita a B4 confirmar `ip route 10.0.0.4 255.255.255.252 10.0.0.9` para responder tráfico de B2.
-* Se solicita a B5 revisar su ruta hacia `10.0.0.0/30` para no devolver tráfico a B4 (bucle B4-B5).
-* Se solicita a B3 confirmar la condición de su flotante hacia `10.0.0.5` para `10.0.0.16/30` (evita rebote mutuo).
+* **Banco 1:** rutas flotantes de B2 hacia `10.0.0.16/30` ya no rebotan (track 8 + `Null0`). `10.0.0.18` es alcanzable desde B2 por el anillo. Pendiente validar `/interbancaria`.
+* **Banco 3:** su SLA a `10.0.0.18` por B4 (sonda 2) y la flotante de B3 hacia `10.0.0.5` para `10.0.0.16/30` deberían re-evaluarse: ahora B2 enruta `.16/30` por B1 y el lado oeste no entrega.
+* **Banco 4/5:** se solicita confirmar rutas de retorno (`10.0.0.4/30` vía `10.0.0.9` en B4) y el estado de las interfaces `10.0.0.10`/`10.0.0.13`/`10.0.0.14`, porque el lado B3 de B2 no converge.
