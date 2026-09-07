@@ -3,50 +3,54 @@
 flush ruleset
 
 table inet filter {
-   set blocked_domains {
-       type ipv4_addr
-   }
 
-   chain input {
-       type filter hook input priority 0;
-       policy drop;
+set blocked_domains {
+type ipv4_addr
+}
 
-       iif "lo" accept
-       ct state established,related accept
-       ip protocol icmp accept
-   }
+chain input {
+type filter hook input priority 0;
+policy drop;
 
-   chain forward {
-       type filter hook forward priority 0;
-       policy drop;
+iif "lo" accept
+ct state established,related accept
+ip protocol icmp accept
+}
 
-       ct state established,related accept
+chain forward {
+type filter hook forward priority 0;
+policy drop;
 
-       # Usuarios hacia servidor web
-       ip saddr 172.16.1.0/24 ip daddr 172.16.2.2 tcp dport { 80, 443 } accept
+ct state established,related accept
 
-       # Servidor web hacia base de datos
-       ip saddr 172.16.2.2 ip daddr 172.16.3.2 tcp dport 5432 accept
+# Usuarios hacia servidor web
+ip saddr 172.16.1.0/24 ip daddr 172.16.2.2 tcp dport { 80, 443 } accept
 
-       # Acceso HTTP externo hacia servidor web
-       iifname "eth0" ip daddr 172.16.2.2 tcp dport 80 accept
+# Servidor web hacia base de datos
+ip saddr 172.16.2.2 ip daddr 172.16.3.2 tcp dport 5432 accept
 
-       # Consultas DNS hacia el exterior
-       ip saddr 172.16.0.0/16 oifname "eth0" udp dport 53 accept
-       ip saddr 172.16.0.0/16 oifname "eth0" tcp dport 53 accept
+# Permite acceso HTTP externo unicamente al servidor web (Internet publico)
+iifname "eth0" ip daddr 172.16.2.2 tcp dport 80 accept
 
-       # Bloqueo de dominios restringidos
-       ip saddr 172.16.1.0/24 ip daddr @blocked_domains tcp dport { 80, 443 } log prefix "DOMAIN_BLOCK: " drop
+# Interbancario Banco 5 via B4 (enlace 10.0.0.12/30 -> NAT 10.0.0.9:80 -> 172.16.2.2:8081)
+iifname "eth0" ip saddr 10.0.0.14 ip daddr 172.16.2.2 tcp dport 8081 accept
 
-       # Navegacion web hacia Internet
-       ip saddr 172.16.0.0/16 oifname "eth0" tcp dport { 80, 443 } accept
+# Interbancario Banco 5 via B1/B2 (enlace 10.0.0.16/30 -> NAT 10.0.0.6:80 -> 172.16.2.2:8080)
+iifname "eth0" ip saddr 10.0.0.17 ip daddr 172.16.2.2 tcp dport 8080 accept
 
-       # ICMP habilitado para diagnostico
-       ip protocol icmp accept
-   }
+ip saddr 172.16.0.0/16 oifname "eth0" udp dport 53 accept
+ip saddr 172.16.0.0/16 oifname "eth0" tcp dport 53 accept
 
-   chain output {
-       type filter hook output priority 0;
-       policy accept;
-   }
+ip saddr 172.16.1.0/24 ip daddr @blocked_domains tcp dport { 80, 443 } log prefix "DOMAIN_BLOCK: " limit rate 5/minute drop
+
+ip saddr 172.16.0.0/16 oifname "eth0" tcp dport { 80, 443 } accept
+
+# ICMP temporal para diagnostico
+ip protocol icmp accept
+}
+
+chain output {
+type filter hook output priority 0;
+policy accept;
+}
 }

@@ -208,6 +208,7 @@ FW1 opera con filtrado de paquetes de estado (`table inet filter`) con política
   set blocked_domains { type ipv4_addr }
   ip saddr 172.16.1.0/24 ip daddr @blocked_domains tcp dport { 80, 443 } log prefix "DOMAIN_BLOCK: " limit rate 5/minute drop
   ```
+  - **Estado de Persistencia:** En el nodo FW1 existen la lista `/etc/domain-control/blocked.txt` y el script resolutor `/usr/local/sbin/update-domains.sh`. Sin embargo, tras un reinicio, el set `blocked_domains` inicia vacío debido a que no existe una tarea de arranque configurada en `/etc/local.d/` ni en crontab. Requiere automatización como tarea pendiente sujeta a confirmación.
 * **ICMP diagnóstico:** `ip protocol icmp accept`.
 
 ---
@@ -239,7 +240,7 @@ Implementa server blocks aislados para separar el tráfico público del tráfico
 
 ### Backend Flask (`/opt/interbanco.py`)
 * Servicio en background gestionado por OpenRC (`rc-service interbanco status`).
-* Escucha en `127.0.0.1:5001`.
+* **Binding Real:** `0.0.0.0:5001` a nivel de proceso Python (`app.run(host="0.0.0.0", port=5001)`). Nginx actúa como proxy reverso redirigiendo localmente hacia `http://127.0.0.1:5001/`. El puerto 5001 se encuentra protegido internamente y no expuesto al exterior por la política por defecto `drop` de FW1 en la cadena forward.
 * Endpoints disponibles:
   * `GET /cuenta/<id>`: Consulta de saldo y titular.
   * `POST /transferencia/interna`: Transacciones entre clientes locales de Banco 3.
@@ -251,10 +252,12 @@ Implementa server blocks aislados para separar el tráfico público del tráfico
 ## 9. Base de Datos (DB01 — PostgreSQL)
 
 * **Servicio:** PostgreSQL activo en puerto `5432` (`rc-service postgresql status`).
+* **Configuración del Motor:** `/data/postgresql/postgresql.conf` con directiva `listen_addresses = '*'`.
+* **Control de Acceso (`pg_hba.conf`):** Restringido exclusivamente a conexiones locales (`127.0.0.1/32`, `::1/128`) y a la IP del servidor web (`172.16.2.2/32`) mediante autenticación cifrada `scram-sha-256`.
+* **Seguridad perimetral:** Reforzada a nivel de red por FW1 (solo IP `172.16.2.2` puede abrir conexión TCP 5432).
 * **Base de datos:** `banca_digital`.
 * **Tablas principales:** `cuentas`, `transacciones`, `auditoria_interbancaria`.
-* **Control de acceso:** Restringido a nivel de red por FW1 (solo IP `172.16.2.2` puede abrir conexión TCP 5432).
-* **Seguridad de credenciales:** Conforme a las normas de seguridad del proyecto, las contraseñas reales se omiten de este documento.
+* **Seguridad de credenciales:** Conforme a las normas de seguridad del proyecto, las contraseñas reales se omiten de este documento y se anonimizan como `<REDACTED>`.
 
 ---
 
@@ -303,9 +306,10 @@ Durante la auditoría del anillo con B1 inalcanzable, se registraron dos anomal�
   * `R1 -> B2 (10.0.0.5)`: 100% éxito (RTT 4 ms).
   * `R1 -> B4 (10.0.0.10)`: 100% éxito (RTT 4 ms).
   * `R1 -> B4-B5 (10.0.0.13, 10.0.0.14)`: 100% éxito (RTT 8-16 ms).
-* **Conmutación de Failover:**
-  * Comprobada la caída de Track 1 y Track 2 ante la desconexión de Banco 1.
-  * Verificada la activación de rutas flotantes en la tabla de enrutamiento (RIB) con distancia administrativa 10.
+* **Conmutación de Failover y Estado Actual de Tracks (Verificado en Vivo):**
+  * `Track 1` (SLA 1 hacia B1 `10.0.0.1` vía B2 `10.0.0.5`): **UP** (Retorno `OK`, RTT 76 ms).
+  * `Track 2` (SLA 2 hacia B1 `10.0.0.18` vía B4 `10.0.0.10`): **DOWN** (Retorno `Timeout`).
+  * **Comportamiento en la RIB:** Con Track 1 UP, la ruta primaria hacia `10.0.0.0/30 via 10.0.0.5` está activa (AD 1). Con Track 2 DOWN, la ruta primaria hacia `10.0.0.16/30 via 10.0.0.10` fue retirada y se instaló automáticamente la ruta flotante `10.0.0.16/30 via 10.0.0.5` (AD 10).
 
 ---
 
@@ -318,7 +322,26 @@ Durante la auditoría del anillo con B1 inalcanzable, se registraron dos anomal�
 
 ---
 
-## 15. Checklist de Capturas con Wireshark para la Entrega
+## 15. Archivos de Configuración Versionados
+
+Para auditoría, defensa y reproducibilidad del entorno, se encuentran versionadas las configuraciones verificadas y sanitizadas de Banco 3:
+
+| Componente | Archivo Versionado | Descripción |
+|---|---|---|
+| **Router R1** | [`banco3/r1/running-config.txt`](../banco3/r1/running-config.txt) | Configuración completa y verificada en vivo de R1 (SLA, Tracks, PBR, NAT, rutas). |
+| **Switch SW1** | [`banco3/sw1/running-config.txt`](../banco3/sw1/running-config.txt) | Configuración verificada de SW1 (VLANs 10, 20, 30, Troncal dot1q, Port Security sticky). |
+| **Firewall FW1** | [`banco3/fw1/nftables.nft`](../banco3/fw1/nftables.nft) | Ruleset persistente oficial de nftables en FW1. |
+| **Firewall FW1** | [`banco3/fw1/network-summary.md`](../banco3/fw1/network-summary.md) | Resumen técnico de interfaces, enrutamiento, sysctl y filtrado de dominios. |
+| **Web / Proxy** | [`banco3/web01/default.conf`](../banco3/web01/default.conf) | Configuración de Nginx en WEB01 (Server blocks 80, 8080, 8081 y reglas de proxy/bloqueo). |
+| **Backend Flask** | [`banco3/web01/interbanco_sanitized.py`](../banco3/web01/interbanco_sanitized.py) | Código de la API `/opt/interbanco.py` con credenciales sanitizadas (`<REDACTED>`). |
+| **Servicio Web** | [`banco3/web01/service-summary.md`](../banco3/web01/service-summary.md) | Documentación de la arquitectura de servicios Nginx + Flask en WEB01. |
+| **PostgreSQL** | [`banco3/db01/pg_hba-sanitized.conf`](../banco3/db01/pg_hba-sanitized.conf) | Reglas de autenticación de clientes de PostgreSQL (`172.16.2.2/32 scram-sha-256`). |
+| **Base de Datos** | [`banco3/db01/postgresql-summary.md`](../banco3/db01/postgresql-summary.md) | Resumen técnico del servicio PostgreSQL, base de datos `banca_digital` y esquema. |
+| **Verificación** | [`docs/BANCO3_VERIFICACION.md`](../docs/BANCO3_VERIFICACION.md) | Evidencia completa y pruebas mínimas de conectividad y estado en vivo. |
+
+---
+
+## 16. Checklist de Capturas con Wireshark para la Entrega
 
 Capturas obligatorias para el informe final:
 - [ ] **ARP:** Resolución de direcciones en VLAN 10, VLAN 20 y enlaces de tránsito `10.0.0.4/30` / `10.0.0.8/30`.
@@ -334,7 +357,7 @@ Capturas obligatorias para el informe final:
 
 ---
 
-## 16. Información Útil para el Informe Final
+## 17. Información Útil para el Informe Final
 
 * **Modelo de Red:** Red bancaria fintech con segmentación trifurcada (Usuarios, DMZ Web, DB) gobernada por firewall perimetral y router de borde Cisco.
 * **Esquema de Alta Disponibilidad:** Anillo estático de 5 nodos con detección remota desacoplada mediante IP SLA y Local PBR (evita bucles y no contamina la RIB).

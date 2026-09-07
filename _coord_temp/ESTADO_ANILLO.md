@@ -36,10 +36,10 @@ Topología física y lógica en anillo cerrado:
 
 ## Routing
 
-* **Banco 3:** Enrutamiento estático de anillo completo con primarias AD 1 y flotantes AD 10 implementadas y auditadas.
+* **Banco 3:** Enrutamiento estático de anillo completo con primarias AD 1 y flotantes AD 10 implementadas, auditadas y con Local PBR para IP SLA.
+* **Banco 2:** Enrutamiento estático en Cisco 3745. Primarias AD 1. Flotantes de respaldo con AD 100 condicionadas a tracks (Tracks 7 y 8) para evitar rebotar tráfico cuando el destino está inalcanzable.
+* **Banco 4:** Enrutamiento estático en router Linux (`INTERNET`). Rutas primarias con métrica 10 y rutas flotantes de respaldo con métrica 20. Tránsito puro sin NAT entre interfaces del anillo.
 * **Banco 1:** PENDIENTE DE CONFIRMACIÓN POR BANCO 1.
-* **Banco 2:** PENDIENTE DE CONFIRMACIÓN POR BANCO 2.
-* **Banco 4:** PENDIENTE DE CONFIRMACIÓN POR BANCO 4.
 * **Banco 5:** PENDIENTE DE CONFIRMACIÓN POR BANCO 5.
 
 ---
@@ -47,9 +47,13 @@ Topología física y lógica en anillo cerrado:
 ## IP SLA / Tracks
 
 * **Banco 3:**
-  * SLA 1 (`10.0.0.1` vía Fa1/0 con Local PBR a `10.0.0.5`): **DOWN** (debido a que B1 no responde en 10.0.0.1).
-  * SLA 2 (`10.0.0.18` vía Fa2/0 con Local PBR a `10.0.0.10`): **DOWN** (debido a corte B5-B1).
-* **Bancos 1, 2, 4, 5:** PENDIENTE DE CONFIRMACIÓN POR CADA BANCO.
+  * SLA 1 (`10.0.0.1` vía Fa1/0 con Local PBR a `10.0.0.5`): **UP** (B1 alcanzable en 10.0.0.1 vía B2 con RTT ~76ms; ruta primaria 10.0.0.0/30 activa en RIB).
+  * SLA 2 (`10.0.0.18` vía Fa2/0 con Local PBR a `10.0.0.10`): **DOWN** (Timeout hacia 10.0.0.18; ruta flotante 10.0.0.16/30 vía B2 instalada en RIB).
+* **Banco 2:**
+  * SLAs 1-6 activos. Track 1 (B1 directo) = UP (inestable/flapeando). Track 2 (B3 directo) = UP. Tracks 3, 4, 5, 6, 7, 8 = DOWN. Flotantes hacia B3 no se instalan al estar Track 8 en DOWN.
+* **Banco 4:**
+  * Demonio `/etc/network/ip-sla-ring.sh` (sondas cada 2s). Track B3 = UP. Track B5 = UP. Track B2 = DOWN. Track B1 = WAITING_INIT.
+* **Banco 1, 5:** PENDIENTE DE CONFIRMACIÓN POR CADA BANCO.
 
 ---
 
@@ -66,8 +70,8 @@ Topología física y lógica en anillo cerrado:
    * *Traza observada:* `10.0.0.10 -> 10.0.0.14 -> 10.0.0.10 -> 10.0.0.14 ...`
    * *Causa:* B4 reenvía hacia B5. B5, al no tener salida hacia B1, conmuta a una ruta flotante que devuelve el tráfico hacia B4 (`10.0.0.13`), generando bucle cerrado hasta expirar TTL.
 2. **Rebote directo entre Banco 2 y Banco 3 hacia `10.0.0.16/30` (`10.0.0.17` y `10.0.0.18`):**
-   * *Traza observada:* `10.0.0.5 -> 10.0.0.6 -> *`
-   * *Causa:* B3 envía a B2 por ruta de respaldo. B2 tiene una ruta que reenvía `10.0.0.16/30` hacia B3 (`10.0.0.6`), rebotando el paquete inmediatamente.
+   * *Traza observada originalmente:* `10.0.0.5 -> 10.0.0.6 -> *`
+   * *Estado actual:* **MITIGADO POR BANCO 2**. Banco 2 condicionó su ruta flotante a Track 8. Al estar Track 8 en DOWN, la flotante no se instala en su tabla y Banco 2 descarta el tráfico en vez de devolverlo a B3.
 
 ---
 
@@ -91,10 +95,10 @@ Topología física y lógica en anillo cerrado:
 ---
 
 ## Historial Breve
-* **2026-09-07:** Implementación de Local PBR en Banco 3 para aislar sondas SLA 1 y SLA 2 sin romper failover ni generar flapping. Auditoría completa de Banco 3 realizada. Detectados bucles externos B4-B5 y B2-B3 ante la caída simultánea de B1. Creación de la estructura de coordinación temporal.
+* **2026-09-07:** Implementación de Local PBR en Banco 3 para aislar sondas SLA 1 y SLA 2 sin romper failover ni generar flapping. Auditoría completa de Banco 3 realizada. Confirmada recuperación de alcanzabilidad de B1 por el enlace B2 (Track 1 UP). Consolidación de estados confirmados por Banco 2 y Banco 4: mitigación de rebote en B2 y diagnóstico del bucle B4-B5 ante doble fallo simultáneo.
 
 ---
 
 ## Última Actualización
-* **Fecha:** 2026-09-07 17:15 UTC-6
+* **Fecha:** 2026-09-07 17:40 UTC-6
 * **Responsable:** Agente Banco 3 (Coordinador de Integración)
