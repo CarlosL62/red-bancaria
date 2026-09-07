@@ -4,6 +4,54 @@
 Última actualización: 2026-09-07 (evidencia del nodo capturada en vivo)
 Agente/responsable: Agente Banco 1
 
+## Verificación global del anillo
+Verificación diagnóstica (2026-09-07, solo lectura, sin cambios de red) ejecutada desde el nodo B1 contra toda la topología del anillo.
+
+### Vecinos directos
+* **Banco 2:** `10.0.0.2` — ping **100%** (RTT 16-30 ms). ARP `ca01.d8af.0038`.
+* **Banco 5:** `10.0.0.17` — ping **100%** (RTT 10-13 ms). ARP `ca01.aa69.001d`.
+
+### Redes /30 del anillo (destino probado → alcanzable)
+| Red | Destino probado | Alcanzable | Ruta activa (RIB) | Next-hop | Traza |
+|---|---|---|---|---|---|
+| `10.0.0.0/30` (B1-B2) | `10.0.0.2` | **SÍ** (100%) | Conectada | Gi0/1 (directo) | 1 hop |
+| `10.0.0.4/30` (B2-B3) | `10.0.0.5` (B2) / `10.0.0.6` (B3) | **SÍ** (100% c/u; .6 ~55 ms) | Estática AD 1 | `10.0.0.2` | `10.0.0.2 → 10.0.0.6` |
+| `10.0.0.8/30` (B3-B4) | `10.0.0.9` / `10.0.0.10` | **NO** (0%) | Estática AD 1 (track 1) | `10.0.0.2` | 1: `10.0.0.2` 2: `10.0.0.2 !H` → **B2 devuelve Host Unreachable** |
+| `10.0.0.12/30` (B4-B5) | `10.0.0.13` (B4) / `10.0.0.14` (B5) | **SÍ** (100%; .13 ~19 ms) | Estática AD 1 | `10.0.0.17` | `10.0.0.17 → 10.0.0.13` (completa) |
+| `10.0.0.16/30` (B5-B1) | `10.0.0.17` | **SÍ** (100%) | Conectada | Gi0/2 (directo) | 1 hop |
+
+Nota: **B4 (10.0.0.13) es alcanzable por el arco este** (vía B5, traza completa), pero el segmento `10.0.0.8/30` (B3-B4) NO se alcanza por el arco oeste porque **Banco 2 no enruta hacia `.8/30`** (responde ICMP `!H` en el traceroute). PENDIENTE DE CONFIRMACIÓN POR BANCO 2/3/4.
+
+### Rutas activas (instaladas en RIB)
+* `10.0.0.4/30`→`10.0.0.2` (AD1), `10.0.0.8/30`→`10.0.0.2` (AD1), `10.0.0.12/30`→`10.0.0.17` (AD1), default→`192.168.122.1`, `172.16.0.0/16`→`10.10.2.2`.
+* Ninguna ruta de B1 reenvía tráfico al banco del que proviene; los nexthops flotantes apuntan al arco opuesto (fold de anillo intencional, AD20).
+* Residual config: `ip route 10.0.0.4 via 10.0.0.2` (sin track) duplicada — sin efecto en RIB. PENDIENTE limpieza.
+
+### IP SLA / Tracks
+* **SLA: ninguno configurado** (eliminados; sustituidos por tracks de línea).
+* Track 1 (Gi0/1, oeste/B2): **Up**. Track 2 (Gi0/2, este/B5): **Up**. El estado coincide con la conectividad real de los vecinos directos.
+
+### Failover (teoría, sin cortes)
+* Corte este (track 2 DOWN): `10.0.0.12/30` vira a `10.0.0.2` (AD20) — dirección correcta.
+* Corte oeste (track 1 DOWN): `10.0.0.4`/`10.0.0.8` viran a `10.0.0.17` (AD20) — dirección correcta.
+* Riesgos detectados:
+  1. `10.0.0.8/30` ya está **inalcanzable por arco oeste hoy** (B2 `!H`) pese a tener la primaria instalada → "ruta muerta en caliente". PENDIENTE DE CONFIRMACIÓN POR BANCO 2/3.
+  2. Loop B4-B5 hacia `10.0.0.0/30` (reportado por B3 ante caída simultánea de B1): **no reproducible con B1 activo** (.13/.14/.17 OK). Requiere drill coordinado para confirmar.
+  3. Dependencia: si cae Gi0/1, B1 reenviará `10.0.0.0/30` hacia B5; B5 debe reenviar hacia B2/B3 y no devolver a B1. PENDIENTE DE CONFIRMACIÓN POR BANCO 5.
+* Drill de corte no ejecutado (requiere aprobación).
+
+### Servicios interbancarios probados (solo TCP, sin transacciones)
+* `10.0.0.6:80` (B3, servicio interbancario): **TIME-OUT** (ICMP sí responde, TCP 80 no). PENDIENTE DE CONFIRMACIÓN POR BANCO 3 (¿ACL/política de origen?).
+* `10.0.0.9/.10:80` (B3-B4): UNREACH (coherente con `.8/30` caído).
+* `10.0.0.5:80` (B2), `10.0.0.13/.14/.17:80` (B4/B5/B5-B1): **REFUSED** (nada publicado en 80).
+* Ningún endpoint `/interbancaria` de otra entidad respondió desde B1 en esta verificación.
+
+### Problemas pendientes
+* `10.0.0.8/30` (B3-B4) inalcanzable vía B2 (`!H`).
+* TCP `10.0.0.6:80` (B3) sin respuesta — PENDIENTE B3.
+* `ESTADO_ANILLO.md` sigue listando "timeout B1" en `.1`/`.18` — datos stale; re-probar con B2/B3/B5.
+* Drill de failover coordinado pendiente.
+
 ## Interfaces de tránsito
 * **Gi0/1:** `10.0.0.1/30` — enlace hacia **Banco 2** (`10.0.0.0/30`). Estado: **UP/UP**. ARP de `10.0.0.2` resuelto (`ca01.d8af.0038`). `ip nat outside`.
 * **Gi0/2:** `10.0.0.18/30` — enlace hacia **Banco 5** (`10.0.0.16/30`). Estado: **UP/UP**. ARP de `10.0.0.17` resuelto (`ca01.aa69.001d`). `ip nat outside`.
