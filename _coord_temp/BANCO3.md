@@ -84,8 +84,8 @@ Banco 3 se interconecta con el anillo mediante dos interfaces de tránsito punto
 ```text
 ! Primarias (AD 1, condicionadas a Object Tracking End-to-End Hop-2)
 ip route 10.0.0.0 255.255.255.252 10.0.0.5 track 1    ! Primaria B1-B2 vía B2 (Track 1 UP: B1 vía B2)
-ip route 10.0.0.12 255.255.255.252 10.0.0.10 track 3  ! Primaria B4-B5 vía B4 (Track 3 UP: B5 vía B4)
-ip route 10.0.0.16 255.255.255.252 10.0.0.10 track 3  ! Primaria B5-B1 vía B4 (Track 3 UP: B5 vía B4)
+ip route 10.0.0.12 255.255.255.252 10.0.0.10 track 3  ! Primaria B4-B5 vía B4 (Track 3 UP: B5 cara B4)
+ip route 10.0.0.16 255.255.255.252 10.0.0.10 track 2  ! Primaria B5-B1 vía B4 (Track 2 UP: B5 cara B1)
 
 ! Flotantes Validadas (AD 10, condicionadas a Track del camino alterno)
 ip route 10.0.0.16 255.255.255.252 10.0.0.5 10 track 1  ! Respaldo B5-B1 vía B2 (Track 1 UP: B1 vía B2)
@@ -111,7 +111,18 @@ Banco 3 implementa la supervisión de 2 saltos (Hop-2) en ambos arcos del anillo
   track 1 rtr 1 reachability
    delay down 6 up 3
   ```
-* **Track 3 (B3 -> B4 -> B5):** Monitorea la alcanzabilidad de Banco 5 (`10.0.0.14`, Salto 2) por el camino este (Fa2/0 hacia B4). Gobierna las primarias del arco este: `10.0.0.12/30` y `10.0.0.16/30`. Respalda `10.0.0.0/30` y `10.0.0.4/30`.
+* **Track 2 (B3 -> B4 -> B5 cara B1):** Monitorea la alcanzabilidad de Banco 5 en su interfaz oeste (`10.0.0.17`, Salto 2) por el camino este (Fa2/0 hacia B4). Gobierna la primaria a `10.0.0.16/30`. Elimina el punto ciego ante un corte exclusivo de B5-B1.
+  ```text
+  ip sla monitor 2
+   type echo protocol ipIcmpEcho 10.0.0.17 source-interface FastEthernet2/0
+   timeout 2000
+   threshold 2000
+   frequency 5
+  ip sla monitor schedule 2 life forever start-time now
+  track 2 rtr 2 reachability
+   delay down 6 up 3
+  ```
+* **Track 3 (B3 -> B4 -> B5 cara B4):** Monitorea la alcanzabilidad de Banco 5 (`10.0.0.14`, Salto 2) por el camino este (Fa2/0 hacia B4). Gobierna la primaria del arco este hacia `10.0.0.12/30`. Respalda `10.0.0.0/30` y `10.0.0.4/30`.
   ```text
   ip sla monitor 3
    type echo protocol ipIcmpEcho 10.0.0.14 source-interface FastEthernet2/0
@@ -122,16 +133,21 @@ Banco 3 implementa la supervisión de 2 saltos (Hop-2) en ambos arcos del anillo
   track 3 rtr 3 reachability
    delay down 6 up 3
   ```
-> **Retiro de Sondas Innecesarias:** Se retiró SLA 2 / Track 2 (sonda Hop-3 hacia `10.0.0.18`), cuyo aleteo (900+ transiciones) se originaba en la asimetría de rutas flotantes de retorno en B4. Se retiró SLA 4 / Track 4 al eliminarse la flotante de `10.0.0.12/30`.
+> **Desacoplamiento de Sondas en el Arco Este:** Para resolver el punto ciego detectado durante el corte de B5-B1 (donde `10.0.0.14` seguía UP pero `10.0.0.16/30` bucleaba entre B3 y B4), se independizó el monitoreo de B5-B1 mediante SLA 2 / Track 2 hacia `10.0.0.17`. SLA 3 / Track 3 queda asignado únicamente al segmento B4-B5 (`10.0.0.14`). SLA 4 queda retirado al suprimirse la flotante de `10.0.0.12/30`.
 
 ### Local PBR (Policy Based Routing Local)
 Para evitar dependencias circulares y anclar cada sonda estrictamente a su interfaz de salida sin usar rutas `/32`:
 ```text
+ip access-list extended ACL-SLA-B4-B5-EAST
+ permit icmp host 10.0.0.9 host 10.0.0.17
 ip access-list extended ACL-SLA-B4-B5
  permit icmp host 10.0.0.9 host 10.0.0.14
 ip access-list extended ACL-SLA-B2-B1
  permit icmp host 10.0.0.6 host 10.0.0.1
 
+route-map RM-LOCAL-SLA permit 12
+ match ip address ACL-SLA-B4-B5-EAST
+ set ip next-hop 10.0.0.10
 route-map RM-LOCAL-SLA permit 15
  match ip address ACL-SLA-B4-B5
  set ip next-hop 10.0.0.10
@@ -320,12 +336,13 @@ Auditoría integral ejecutada desde los nodos de Banco 3 (R1 y WEB01) sobre la t
 
 ### 13.3. IP SLA, Object Tracking y Local PBR
 * **SLA 1 (`10.0.0.1` vía `Fa1/0`):** **UP** (Track 1 UP, RTT ~84-96 ms). Controla primaria `10.0.0.0/30` y flotante `10.0.0.16/30`.
-* **SLA 3 (`10.0.0.14` vía `Fa2/0`):** **UP** (Track 3 UP, RTT ~1-8 ms). Controla primarias `10.0.0.12/30` y `10.0.0.16/30`, y flotantes `10.0.0.0/30` y `10.0.0.4/30`.
-* **SLA 2 y SLA 4:** **ELIMINADOS**. SLA 2 (Hop-3 hacia `10.0.0.18`) retirado para extinguir el flapping continuo (>900 aleteos) causado por el retorno asimétrico de B4. SLA 4 retirado al removerse la flotante innecesaria hacia `10.0.0.12/30`.
-* **Histéresis:** `delay down 6 up 3` configurada en ambos tracks activos (1 y 3). Transiciones 100% limpias y libres de aleteo.
+* **SLA 2 (`10.0.0.17` vía `Fa2/0`):** **UP** (Track 2 UP, RTT ~12-24 ms). Controla primaria `10.0.0.16/30`. Desacopla la supervisión de B5-B1 del enlace B4-B5 y elimina el punto ciego.
+* **SLA 3 (`10.0.0.14` vía `Fa2/0`):** **UP** (Track 3 UP, RTT ~1-8 ms). Controla primaria `10.0.0.12/30`, y flotantes `10.0.0.0/30` y `10.0.0.4/30`.
+* **SLA 4:** **ELIMINADO**. Retirado al removerse la flotante innecesaria hacia `10.0.0.12/30`.
+* **Histéresis:** `delay down 6 up 3` configurada en todos los tracks activos (1, 2 y 3). Transiciones 100% limpias y libres de aleteo.
 
 ### 13.4. Evaluación de Failover y Bucles Potenciales
-* **Failover de `10.0.0.16/30` (B3 -> B2 -> B1 -> B5):** Con corte en el arco este (Track 3 DOWN), la flotante hacia Banco 2 (`via 10.0.0.5 10 track 1`) asume de inmediato en la RIB. Ping a `10.0.0.17` 100% OK (3/3), traceroute completado en 3 saltos limpios (`10.0.0.5 -> 10.0.0.1 -> 10.0.0.17`).
+* **Failover de `10.0.0.16/30` (B3 -> B2 -> B1 -> B5):** Con corte en el segmento B5-B1 (Track 2 DOWN) o en el arco este (Track 2 y 3 DOWN), la flotante hacia Banco 2 (`via 10.0.0.5 10 track 1`) asume de inmediato en la RIB. Ping a `10.0.0.17` 100% OK (3/3), traceroute completado en 3 saltos limpios (`10.0.0.5 -> 10.0.0.1 -> 10.0.0.17`).
 * **Protección ante Corte B4-B5 (`10.0.0.12/30`):** Track 3 cae a DOWN; al no existir ruta flotante hacia B2 para esta red, el tráfico hacia `10.0.0.14` cae de forma local e inmediata en `Null0 10.0.0.0/27 AD 250`. Se extingue por completo el rebote `B3 -> B2 -> B3`.
 * **Preservación de Tránsito:** El route-map `RM-LOCAL-SLA` solo aplica por `ip local policy` a paquetes generados localmente por R1. El tráfico interbancario de tránsito (B2 <-> B4) no es evaluado por PBR y se enruta de forma transparente a nivel L3.
 

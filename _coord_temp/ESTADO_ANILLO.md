@@ -59,7 +59,7 @@ Consolidación técnica oficial del estado del anillo de interconexión entre la
 |---|---|---|---|---|---|
 | **Banco 1** | Cisco IOSv | Primarias AD 1 / Flotantes AD 20 (trackeadas) | SLAs 2 y 5 al Hop 2 (ICMP echo cada 5s) + host routes /32 | Tracks 10 y 20 (`delay down 10 up 5`) | **Tracks 10 y 20 UP (100% OPERATIVO)** |
 | **Banco 2** | Cisco 3745 | Primarias AD 1 / Flotantes AD 100 | SLAs 10 y 20 al Hop 2 (ICMP echo cada 3s) + host routes /32 | Tracks 10 y 20 (`delay down 6 up 3`) | **Tracks 10 y 20 UP (100% OPERATIVO)** |
-| **Banco 3** | Cisco 3745 | Primarias AD 1 / Flotantes AD 10 con Track + Null0 /27 (AD 250) + Local PBR | SLAs 1 y 3 al Hop 2 (ICMP echo cada 5s por Fa1/0 y Fa2/0) | Tracks 1 y 3 (`delay down 6 up 3`) | **Tracks 1 y 3 UP (100% OPERATIVO, 0 aleteo)** |
+| **Banco 3** | Cisco 3745 | Primarias AD 1 / Flotantes AD 10 con Track + Null0 /27 (AD 250) + Local PBR | SLAs 1, 2 y 3 al Hop 2 (ICMP echo cada 5s por Fa1/0 y Fa2/0) | Tracks 1, 2 y 3 (`delay down 6 up 3`) | **Tracks 1, 2 y 3 UP (100% OPERATIVO, 0 aleteo)** |
 | **Banco 4** | Linux (Alpine) | Primarias Métrica 10 / Flotantes Métrica 20 (sin NAT tránsito) | Script `ip-sla-ring.sh` (sondas cada 2s) | Tracks B3, B2, B5, B1 | **Tracks B3, B2, B5, B1 UP (100% OPERATIVO)** |
 | **Banco 5** | Cisco IOSv | Primarias AD 1 / Flotantes AD 200 + Local PBR (`RM-LOCAL-SLA`) | SLAs 10 y 20 al Hop 2 (ICMP echo cada 5s forzadas por PBR) | Tracks 10 y 20 | **Tracks 10 y 20 UP (100% OPERATIVO)** |
 
@@ -95,6 +95,10 @@ Consolidación técnica oficial del estado del anillo de interconexión entre la
   - Ping a `10.0.0.17` (Banco 5): **100% OK** (3/3 recibidos). Traceroute en 3 saltos limpios (`10.0.0.5 -> 10.0.0.1 -> 10.0.0.17`).
   - Al restaurar: Track 3 sube a UP (`delay up 3`) y primarias se reinstalan instantáneamente.
 
+### 5.5. Prevención de Bucle B3-B4 ante Corte Exclusivo de B5-B1 (Banco 3) — RESUELTO
+- **Diagnóstico:** Si el enlace B5-B1 (`10.0.0.16/30`) se corta mientras B4-B5 (`10.0.0.12/30`) continúa sano, una sonda única a `10.0.0.14` permanece en UP. Si Banco 3 mantenía su ruta primaria `10.0.0.16/30` gobernada por `10.0.0.14`, B3 retenía la primaria hacia B4, mientras B4 (que sí detecta la caída de B5-B1) enviaba el tráfico de regreso a B3 por su flotante, generando un bucle L3 `B3 <-> B4`.
+- **Solución Implementada:** Banco 3 incorporó SLA 2 / Track 2 hacia `10.0.0.17` (cara B1 de B5) vía Fa2/0 con Local PBR seq 12, desacoplando la supervisión de `10.0.0.16/30` del enlace B4-B5. Ante la caída de B5-B1, Track 2 cae a DOWN y conmuta a la flotante hacia B2 (`10.0.0.5 AD 10 track 1`), extinguiendo el punto ciego y el bucle.
+
 ---
 
 ## 6. Estado de Servicios Interbancarios Publicados
@@ -115,7 +119,7 @@ Consolidación técnica oficial del estado del anillo de interconexión entre la
 Todos los bancos han consolidado sus mecanismos de supervisión de extremo a extremo:
 * **Banco 1 (Cisco IOSv):** Configuración v8.4 con SLAs 2 y 5 (Hop-2) + Tracks 10 y 20 (`delay down 10 up 5`) y Local PBR (`RM-LOCAL-SLA`). Estado: **UP**.
 * **Banco 2 (Cisco 3745):** Reconstrucción completa E2E con SLAs 10 y 20 + Tracks 10 y 20 (`delay down 6 up 3`), Local PBR para sondas y `Null0 /27`. Estado: **UP**.
-* **Banco 3 (Cisco 3745):** Arquitectura limpia Hop-2 con SLAs 1 y 3 (ICMP a `10.0.0.1` y `10.0.0.14`), Local PBR (`RM-LOCAL-SLA` seq 15 y 20), Tracks 1 y 3 (`delay down 6 up 3`), sin rutas flotantes hacia enlaces cortados y descarte `Null0 10.0.0.0/27 AD 250`. Flapping erradicado. Estado: **UP**.
+* **Banco 3 (Cisco 3745):** Arquitectura limpia Hop-2 desacoplada con SLAs 1, 2 y 3 (ICMP a `10.0.0.1`, `10.0.0.17` y `10.0.0.14`), Local PBR (`RM-LOCAL-SLA` seq 12, 15 y 20), Tracks 1, 2 y 3 (`delay down 6 up 3`), desacoplamiento de monitoreo este (Track 3 para `10.0.0.12/30` y Track 2 para `10.0.0.16/30`), sin rutas flotantes hacia enlaces cortados y descarte `Null0 10.0.0.0/27 AD 250`. Flapping erradicado y punto ciego B5-B1 resuelto. Estado: **UP**.
 * **Banco 4 (Linux Alpine):** Demonio supervisor nativo con socket bind (`ping -I ethX`) gobernando Tracks B3, B2, B5, B1. Estado: **UP**.
 * **Banco 5 (Cisco IOSv):** Esquema E2E con Local PBR (`RM-LOCAL-SLA` seq 10 y 20) gobernando Tracks 10 y 20. Estado: **UP**.
 

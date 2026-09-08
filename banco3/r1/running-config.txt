@@ -1,4 +1,6 @@
-Current configuration : 3763 bytes
+Building configuration...
+
+Current configuration : 4183 bytes
 !
 version 12.4
 service timestamps debug datetime msec
@@ -28,6 +30,12 @@ ip sla monitor 1
  threshold 2000
  frequency 5
 ip sla monitor schedule 1 life forever start-time now
+ip sla monitor 2
+ type echo protocol ipIcmpEcho 10.0.0.17 source-interface FastEthernet2/0
+ timeout 2000
+ threshold 2000
+ frequency 5
+ip sla monitor schedule 2 life forever start-time now
 ip sla monitor 3
  type echo protocol ipIcmpEcho 10.0.0.14 source-interface FastEthernet2/0
  timeout 2000
@@ -58,9 +66,12 @@ ip tcp synwait-time 5
 track 1 rtr 1 reachability
  delay down 6 up 3
 !
+track 2 rtr 2 reachability
+ delay down 6 up 3
+!
 track 3 rtr 3 reachability
  delay down 6 up 3
-! 
+!
 !
 !
 !
@@ -117,8 +128,8 @@ ip forward-protocol nd
 ip route 10.0.0.0 255.255.255.252 10.0.0.5 track 1
 ip route 10.0.0.16 255.255.255.252 10.0.0.5 10 track 1
 ip route 10.0.0.8 255.255.255.252 10.0.0.5 10 track 1
+ip route 10.0.0.16 255.255.255.252 10.0.0.10 track 2
 ip route 10.0.0.12 255.255.255.252 10.0.0.10 track 3
-ip route 10.0.0.16 255.255.255.252 10.0.0.10 track 3
 ip route 10.0.0.0 255.255.255.252 10.0.0.10 10 track 3
 ip route 10.0.0.4 255.255.255.252 10.0.0.10 10 track 3
 ip route 10.0.0.0 255.255.255.224 Null0 250
@@ -140,10 +151,16 @@ ip access-list extended ACL-SLA-B2-B1
  permit icmp host 10.0.0.6 host 10.0.0.1
 ip access-list extended ACL-SLA-B4-B5
  permit icmp host 10.0.0.9 host 10.0.0.14
+ip access-list extended ACL-SLA-B4-B5-EAST
+ permit icmp host 10.0.0.9 host 10.0.0.17
 !
 access-list 1 permit 172.16.0.0 0.0.255.255
 access-list 110 permit ip host 172.16.2.2 any
 no cdp log mismatch duplex
+!
+route-map RM-LOCAL-SLA permit 12
+ match ip address ACL-SLA-B4-B5-EAST
+ set ip next-hop 10.0.0.10
 !
 route-map RM-LOCAL-SLA permit 15
  match ip address ACL-SLA-B4-B5
