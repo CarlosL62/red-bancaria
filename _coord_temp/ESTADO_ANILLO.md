@@ -1,104 +1,129 @@
-# Estado Global del Anillo Interbancario
+# Estado Global del Anillo Interbancario (Consolidación Oficial)
 
 Consolidación técnica oficial del estado del anillo de interconexión entre las 5 instituciones bancarias. Mantenido por Banco 3 en calidad de coordinador de integración.
 
----
-
-## Topología
-Topología física y lógica en anillo cerrado:
-`[BANCO 1] <---> [BANCO 2] <---> [BANCO 3] <---> [BANCO 4] <---> [BANCO 5] <---> [BANCO 1]`
+- **Fecha de Consolidación:** 2026-09-07 18:30 UTC-6
+- **Estado General:** Anillo físico 100% UP. Tránsito L3 operativo en ambos arcos con 1 loop activo identificado (B4-B5 en `10.0.0.4/30`) y 1 asimetría de retorno en B1 pendiente de corrección.
 
 ---
 
-## Direccionamiento (Tabla Oficial de Enlaces de Tránsito)
+## 1. Topología Física y Direccionamiento
 
-| Segmento | Subred | IP Nodo A | IP Nodo B | Propósito |
+```text
+[BANCO 1] <--- 10.0.0.0/30 ---> [BANCO 2] <--- 10.0.0.4/30 ---> [BANCO 3]
+    ^                                                                 |
+    |                                                            10.0.0.8/30
+10.0.0.16/30                                                          |
+    |                                                                 v
+[BANCO 5] <------------------ 10.0.0.12/30 ------------------> [BANCO 4]
+```
+
+### Tabla Oficial de Enlaces de Tránsito Directos
+| Segmento | Subred | IP Nodo A | IP Nodo B | Estado L1/L2 | Conectividad ICMP | Estado Operativo |
+|---|---|---|---|---|---|---|
+| **B1 - B2** | `10.0.0.0/30` | B1: `10.0.0.1` (Gi0/1) | B2: `10.0.0.2` (Fa2/0) | **UP / UP** | 100% OK (~5-15 ms) | **OPERATIVO** |
+| **B2 - B3** | `10.0.0.4/30` | B2: `10.0.0.5` (Fa3/0) | B3: `10.0.0.6` (Fa1/0) | **UP / UP** | 100% OK (~4-16 ms) | **OPERATIVO** |
+| **B3 - B4** | `10.0.0.8/30` | B3: `10.0.0.9` (Fa2/0) | B4: `10.0.0.10` (eth3) | **UP / UP** | 100% OK (~4-18 ms) | **OPERATIVO** |
+| **B4 - B5** | `10.0.0.12/30` | B4: `10.0.0.13` (eth4) | B5: `10.0.0.14` (Eth1/0) | **UP / UP** | 100% OK (~4-16 ms) | **OPERATIVO** |
+| **B5 - B1** | `10.0.0.16/30` | B5: `10.0.0.17` (Eth1/1) | B1: `10.0.0.18` (Gi0/2) | **UP / UP** | 100% OK (~8-12 ms) | **OPERATIVO** (Recreado) |
+
+---
+
+## 2. Estado de Conectividad por Red /30 del Anillo
+
+| Red /30 | Segmento | Estado Global | Diagnóstico y Comportamiento de Enrutamiento |
+|---|---|---|---|
+| **`10.0.0.0/30`** | B1 - B2 | **ALCANZABLE** | Alcanzable desde los 5 bancos. B3 llega por B2 (Track 1 UP). B4 llega por B5 (flotante). B5 llega por B1 (Track 3 UP). |
+| **`10.0.0.4/30`** | B2 - B3 | **LOOP ACTIVO (B4-B5)** | B1, B2 y B3 comunican perfectamente. Sin embargo, tráfico desde B5 hacia `10.0.0.6` entra en bucle cerrado `B4 <-> B5` porque B4 tiene su Track B2 DOWN y envía a B5, mientras B5 mantiene su primaria hacia B4. |
+| **`10.0.0.8/30`** | B3 - B4 | **PARCIALMENTE BLOQUEADO** | B3, B4 y B5 comunican 100%. Pero B2 tiene sus tracks 4/6 caídos y descarta el tráfico a `10.0.0.8/30` en `Null0`. B1 depende de B2 para esta red y tampoco puede entregar hacia B4. |
+| **`10.0.0.12/30`** | B4 - B5 | **ALCANZABLE** | Totalmente alcanzable desde los 5 bancos en ambos sentidos del anillo. |
+| **`10.0.0.16/30`** | B5 - B1 | **ALCANZABLE / ASIMÉTRICO** | Enlace físico restaurado. `10.0.0.17` responde desde B4 y B1. `10.0.0.18` da timeout desde B3 debido a que B1 carece de ruta de retorno hacia `10.0.0.8/30` vía B5 (la envía a B2 y B2 la descarta en `Null0`). |
+
+---
+
+## 3. Matriz de Conectividad Interbancaria (Ping L3 entre Nodos de Borde)
+
+| Origen \ Destino | B1 (`10.0.0.1` / `.18`) | B2 (`10.0.0.2` / `.5`) | B3 (`10.0.0.6` / `.9`) | B4 (`10.0.0.10` / `.13`) | B5 (`10.0.0.14` / `.17`) |
+|---|---|---|---|---|---|
+| **Banco 1** | — | **OK** (`.2`, 5 ms) | **OK** (`.6`, 87 ms vía B2) | **OK** (`.13`, 17 ms vía B5) | **OK** (`.17`, 10 ms) |
+| **Banco 2** | **OK** (`.1`, 15 ms) | — | **OK** (`.6`, 4 ms) | **FAIL** (`.10` Timeout / Null0) | **OK** (`.17`, 20 ms vía B1) |
+| **Banco 3** | **OK** (`.1`, 36 ms vía B2) / **FAIL** (`.18` Timeout) | **OK** (`.5`, 4 ms) | — | **OK** (`.10`, 8 ms) | **OK** (`.14` y `.17` vía B4) |
+| **Banco 4** | **OK** (`.1` y `.18` vía B5, 20 ms) | **OK** (`.2` vía B5->B1, 30 ms) / **FAIL** (`.5` vía B3) | **OK** (`.9` y `.6` vía eth3) | — | **OK** (`.14` y `.17`, 6 ms) |
+| **Banco 5** | **OK** (`.18`, 8 ms; `.2`, 28 ms vía B1) | **OK** (`.2` vía B1) / **FAIL** (`.5` vía B4) | **OK** (`.9` vía B4) / **FAIL** (`.6` Loop) | **OK** (`.13`, 4 ms) | — |
+
+---
+
+## 4. Comparativa de Routing, IP SLA y Tracks por Banco
+
+| Banco | Router / SO | Primarias / Flotantes | IP SLA / Sondas | Tracks Activos | Estado de Tracks |
+|---|---|---|---|---|---|
+| **Banco 1** | Cisco IOSv | Primarias AD 1 / Flotantes AD 20 | Sin IP SLA (sustituido por line-protocol) | Track 1 (Gi0/1) / Track 2 (Gi0/2) | **Track 1 UP / Track 2 UP** |
+| **Banco 2** | Cisco 3745 | Primarias AD 1 / Flotantes AD 100 condicionadas a track + `Null0 /27` | SLAs 1-6 (ICMP echo cada 5s) | Tracks 1, 2, 3, 4, 5, 6, 7, 8 | **Tracks 1, 2, 3, 5 UP** / **Tracks 4, 6, 7, 8 DOWN** |
+| **Banco 3** | Cisco 3745 | Primarias AD 1 / Flotantes AD 10 + Local PBR (`RM-LOCAL-SLA`) | SLAs 1-2 (ICMP echo cada 5s forzadas por PBR) | Track 1 (SLA 1) / Track 2 (SLA 2) | **Track 1 UP** / **Track 2 DOWN** |
+| **Banco 4** | Linux (Alpine) | Primarias Métrica 10 / Flotantes Métrica 20 (sin NAT tránsito) | Script `ip-sla-ring.sh` (sondas cada 2s) | Tracks B3, B2, B5, B1 | **Tracks B3, B5, B1 UP** / **Track B2 DOWN** |
+| **Banco 5** | Cisco IOSv | Primarias AD 1 / Flotantes AD 200 (sin NAT tránsito) | SLAs 1-3 al next-hop directo (`delay down 10 up 5`) | Tracks 1, 2, 3 | **Tracks 1, 2, 3 UP** |
+
+---
+
+## 5. Diagnóstico de Bucles (Loops) y Rebotes
+
+### 5.1. Bucle Activo en Vivo: `10.0.0.4/30` (Banco 4 <-> Banco 5)
+- **Traza confirmada:** `10.0.0.13 -> 10.0.0.14 -> 10.0.0.13 -> 10.0.0.14 ...` hasta agotar TTL.
+- **Causa raíz:**
+  1. Banco 4 tiene `Track B2: DOWN` (no recibe respuesta de `10.0.0.5`), por lo que retiró su ruta primaria por `eth3` e instaló la flotante: `10.0.0.4/30 via 10.0.0.14 dev eth4 metric 20` (hacia B5).
+  2. Banco 5 monitorea únicamente `10.0.0.13` directo para su `Track 1` (que está UP), manteniendo su primaria: `10.0.0.4/30 via 10.0.0.13` (hacia B4).
+  3. Todo tráfico que B5 intente enviar a `10.0.0.4/30` rebota en ciclo cerrado entre B4 y B5.
+- **Solución:** Al corregir Banco 2 su respuesta hacia B4, Track B2 en B4 pasará a UP, B4 restaurará su primaria por `eth3` y el bucle desaparecerá de inmediato.
+
+### 5.2. Bucle Potencial: `10.0.0.0/30` (Banco 4 <-> Banco 5 ante Doble Contingencia)
+- **Mecanismo:** Si B1 cae del lado este (B5) y B2 cae del lado oeste (B4), ambos bancos activarían en simultáneo sus flotantes cruzadas para `10.0.0.0/30` (`via 10.0.0.13` y `via 10.0.0.14`).
+- **Estado actual:** **INACTIVO**, porque B1 está activo en `10.0.0.18` y B5 entrega hacia B1.
+
+### 5.3. Rebote `10.0.0.16/30` (Banco 2 <-> Banco 3): **RESUELTO**
+- Banco 2 condicionó su flotante de retorno hacia B3 a su `Track 8` (actualmente DOWN) y agregó descarte en `Null0 10.0.0.0/27`. Banco 2 ya no devuelve el paquete hacia Banco 3.
+
+---
+
+## 6. Estado de Servicios Interbancarios Publicados
+
+| Banco | IP / Puerto Publicado | Endpoint / Recurso | Estado | Observaciones |
 |---|---|---|---|---|
-| **B1 - B2** | `10.0.0.0/30` | B1 = `10.0.0.1` | B2 = `10.0.0.2` | Enlace interbancario B1-B2 |
-| **B2 - B3** | `10.0.0.4/30` | B2 = `10.0.0.5` | B3 = `10.0.0.6` | Enlace interbancario B2-B3 |
-| **B3 - B4** | `10.0.0.8/30` | B3 = `10.0.0.9` | B4 = `10.0.0.10` | Enlace interbancario B3-B4 |
-| **B4 - B5** | `10.0.0.12/30` | B4 = `10.0.0.13` | B5 = `10.0.0.14` | Enlace interbancario B4-B5 |
-| **B5 - B1** | `10.0.0.16/30` | B5 = `10.0.0.17` | B1 = `10.0.0.18` | Enlace interbancario B5-B1 |
+| **Banco 1** | `10.0.0.1:80` | `GET /` | **OPERATIVO** | Portal web interno responde `HTTP/1.0 200 OK`. |
+| **Banco 1** | `10.0.0.1:80` | `POST /interbancaria` | **NO DISPONIBLE** | Responde `HTTP/1.0 404 Not Found` (falta implementar endpoint transaccional). |
+| **Banco 2** | `10.0.0.2:5001` | API Depósitos / Transferencias | **PARCIAL** | Abierto hacia Banco 1 y Banco 4 (vía B1). Inaccesible desde B3 (falta NAT en Fa3/0). |
+| **Banco 3** | `10.0.0.6:80` / `10.0.0.9:80` | `POST /interbancaria` | **100% OPERATIVO** | **Transacción real completada con éxito por Banco 5** (Q1.00 debitado y acreditado). |
+| **Banco 4** | `10.0.0.10:8080` / `10.0.0.13:8080` | `GET /blacklist`, `/health` | **100% OPERATIVO** | Consumido exitosamente por Banco 5 en `10.0.0.13:8080`. |
+| **Banco 5** | N/A | Transaccional saliente | **CONSUMIDOR OK** | Actúa como cliente exitoso de B3 y B4; no publica servicios propios aún. |
 
 ---
 
-## Estado de Enlaces
+## 7. Plan de Acción y Cambios Mínimos Propuestos por Banco
 
-| Enlace | Segmento | Estado L1/L2 | Conectividad ICMP | Observaciones |
-|---|---|---|---|---|
-| B1 - B2 | `10.0.0.0/30` | PENDIENTE DE CONFIRMACIÓN POR BANCO 1 Y 2 | Fallando (`10.0.0.1` timeout) | B2 responde en `10.0.0.5`, pero no se llega a B1 |
-| B2 - B3 | `10.0.0.4/30` | UP / UP | 100% operativo | `10.0.0.5` <-> `10.0.0.6` RTT ~4-16 ms |
-| B3 - B4 | `10.0.0.8/30` | UP / UP | 100% operativo | `10.0.0.9` <-> `10.0.0.10` RTT ~4-14 ms |
-| B4 - B5 | `10.0.0.12/30` | UP / UP | 100% operativo | `10.0.0.13` <-> `10.0.0.14` RTT ~8-18 ms |
-| B5 - B1 | `10.0.0.16/30` | PENDIENTE DE CONFIRMACIÓN POR BANCO 5 Y 1 | Fallando (`10.0.0.17/18` timeout) | B5 responde en 10.0.0.14, enlace a B1 no responde |
+### Banco 2 (Cisco 3745)
+1. **Ruta estática hacia B4:** Asegurar `ip route 10.0.0.8 255.255.255.252 10.0.0.6` para contestar pings y tráfico provenientes de Banco 4.
+2. **Publicación NAT hacia B3:** Agregar regla de publicación en `Fa3/0`:
+   `ip nat inside source static tcp 10.20.1.34 5001 interface FastEthernet3/0 5001 extendable`.
 
----
+### Banco 4 (Linux Kernel)
+1. **Restaurar primaria por `eth3`:** Al recibir respuestas de `10.0.0.5`, su Track B2 subirá a UP y retirará la flotante por `eth4`, eliminando el bucle con B5.
 
-## Routing
+### Banco 1 (Cisco IOSv)
+1. **Ruta de retorno simétrica hacia `10.0.0.8/30` por B5:**
+   Configurar: `ip route 10.0.0.8 255.255.255.252 10.0.0.17 20 track 2`.
+   Permitirá que los paquetes ICMP de SLA 2 de Banco 3 tengan respuesta y el Track 2 de B3 pase a UP.
+2. **Implementar endpoint `/interbancaria`:** Levantar el backend de transferencias en puerto 80.
 
-* **Banco 3:** Enrutamiento estático de anillo completo con primarias AD 1 y flotantes AD 10 implementadas, auditadas y con Local PBR para IP SLA.
-* **Banco 2:** Enrutamiento estático en Cisco 3745. Primarias AD 1. Flotantes de respaldo con AD 100 condicionadas a tracks (Tracks 7 y 8) para evitar rebotar tráfico cuando el destino está inalcanzable.
-* **Banco 4:** Enrutamiento estático en router Linux (`INTERNET`). Rutas primarias con métrica 10 y rutas flotantes de respaldo con métrica 20. Tránsito puro sin NAT entre interfaces del anillo.
-* **Banco 1:** PENDIENTE DE CONFIRMACIÓN POR BANCO 1.
-* **Banco 5:** PENDIENTE DE CONFIRMACIÓN POR BANCO 5.
+### Banco 5 (Cisco IOSv)
+1. **Condicionar flotante de `10.0.0.0/30`:** Condicionar `via 10.0.0.13 200` a un track para prevenir loops si B1 vuelve a fallar.
+2. **Exponer servicio propio hacia el anillo.**
 
----
-
-## IP SLA / Tracks
-
-* **Banco 3:**
-  * SLA 1 (`10.0.0.1` vía Fa1/0 con Local PBR a `10.0.0.5`): **UP** (B1 alcanzable en 10.0.0.1 vía B2 con RTT ~76ms; ruta primaria 10.0.0.0/30 activa en RIB).
-  * SLA 2 (`10.0.0.18` vía Fa2/0 con Local PBR a `10.0.0.10`): **DOWN** (Timeout hacia 10.0.0.18; ruta flotante 10.0.0.16/30 vía B2 instalada en RIB).
-* **Banco 2:**
-  * SLAs 1-6 activos. Track 1 (B1 directo) = UP (inestable/flapeando). Track 2 (B3 directo) = UP. Tracks 3, 4, 5, 6, 7, 8 = DOWN. Flotantes hacia B3 no se instalan al estar Track 8 en DOWN.
-* **Banco 4:**
-  * Demonio `/etc/network/ip-sla-ring.sh` (sondas cada 2s). Track B3 = UP. Track B5 = UP. Track B2 = DOWN. Track B1 = WAITING_INIT.
-* **Banco 1, 5:** PENDIENTE DE CONFIRMACIÓN POR CADA BANCO.
+### Banco 3 (Cisco 3745)
+- No requiere cambios de routing. Al aplicar B1 y B2 sus correcciones, Track 2 pasará a UP automáticamente.
 
 ---
 
-## Problemas Activos
+## 8. Orden Recomendado de Corrección
 
-1. **Inalcanzabilidad de Banco 1:** Ni `10.0.0.1` (lado B2) ni `10.0.0.18` (lado B5) responden a pings interbancarios.
-2. **Corte o falla de enrutamiento en B5-B1:** `10.0.0.17` y `10.0.0.18` no responden desde B3.
-
----
-
-## Loops Detectados
-
-1. **Bucle entre Banco 4 y Banco 5 hacia `10.0.0.0/30` (`10.0.0.1` y `10.0.0.2`):**
-   * *Traza observada:* `10.0.0.10 -> 10.0.0.14 -> 10.0.0.10 -> 10.0.0.14 ...`
-   * *Causa:* B4 reenvía hacia B5. B5, al no tener salida hacia B1, conmuta a una ruta flotante que devuelve el tráfico hacia B4 (`10.0.0.13`), generando bucle cerrado hasta expirar TTL.
-2. **Rebote directo entre Banco 2 y Banco 3 hacia `10.0.0.16/30` (`10.0.0.17` y `10.0.0.18`):**
-   * *Traza observada originalmente:* `10.0.0.5 -> 10.0.0.6 -> *`
-   * *Estado actual:* **MITIGADO POR BANCO 2**. Banco 2 condicionó su ruta flotante a Track 8. Al estar Track 8 en DOWN, la flotante no se instala en su tabla y Banco 2 descarta el tráfico en vez de devolverlo a B3.
-
----
-
-## Pruebas Recientes
-
-* Pings directos B3-B2 (`10.0.0.5`): **100%** (2/2, 4 ms).
-* Pings directos B3-B4 (`10.0.0.10`): **100%** (2/2, 4 ms).
-* Pings B3 a B4-B5 (`10.0.0.13`, `10.0.0.14`): **100%** (2/2, 8-16 ms).
-* Pings a B1 (`10.0.0.1`, `10.0.0.18`): **0%** (Timeout).
-* Pings a B5-B1 (`10.0.0.17`): **0%** (Timeout).
-
----
-
-## Coordinación Pendiente
-
-* **Banco 1:** Confirmar estado de interfaces `10.0.0.1` y `10.0.0.18`, y estado de su servicio HTTP `/interbancaria`.
-* **Banco 2:** Confirmar configuración de rutas para `10.0.0.8/30`, `10.0.0.12/30` y `10.0.0.16/30` para evitar rebotes hacia B3.
-* **Banco 4:** Confirmar ruta de retorno hacia `10.0.0.4/30` (`via 10.0.0.9`) para permitir respuestas a B2.
-* **Banco 5:** Confirmar rutas hacia `10.0.0.0/30` y verificar por qué se devuelve el tráfico hacia B4 en caso de fallo hacia B1.
-
----
-
-## Historial Breve
-* **2026-09-07:** Implementación de Local PBR en Banco 3 para aislar sondas SLA 1 y SLA 2 sin romper failover ni generar flapping. Auditoría completa de Banco 3 realizada. Confirmada recuperación de alcanzabilidad de B1 por el enlace B2 (Track 1 UP). Consolidación de estados confirmados por Banco 2 y Banco 4: mitigación de rebote en B2 y diagnóstico del bucle B4-B5 ante doble fallo simultáneo.
-
----
-
-## Última Actualización
-* **Fecha:** 2026-09-07 17:40 UTC-6
-* **Responsable:** Agente Banco 3 (Coordinador de Integración)
+1. **Paso 1 (Crítico — Eliminar Loop):** Banco 2 asegura ruta a `10.0.0.8/30 via 10.0.0.6` -> Track B2 de B4 pasa a UP -> Bucle B4-B5 de `10.0.0.4/30` se extingue.
+2. **Paso 2 (Alta — Levantar Track 2 de B3):** Banco 1 agrega ruta `10.0.0.8/30 via 10.0.0.17 20 track 2` -> SLA 2 de B3 recibe echo reply -> Track 2 de B3 pasa a UP.
+3. **Paso 3 (Servicios Interbancarios):** Banco 1 implementa `/interbancaria`; Banco 2 publica en Fa3/0.
