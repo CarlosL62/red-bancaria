@@ -295,30 +295,58 @@ Durante la auditoría del anillo con B1 inalcanzable, se registraron dos anomal�
 
 ---
 
-## 13. Pruebas Realizadas y Verificadas en Vivo
+## 13. Verificación Global del Anillo y Pruebas en Vivo
 
-* **Conectividad Interna:**
-  * `PC-USR -> FW1 (172.16.1.1)`: 100% éxito (RTT 1.3 ms).
-  * `PC-USR -> WEB01 (172.16.2.2)`: 100% éxito (RTT 2.7 ms).
-  * `WEB01 -> DB01 (172.16.3.2:5432)`: Socket TCP abierto y funcional.
-  * Portal Web HTTP: `curl -I http://172.16.2.2/` responde `HTTP/1.1 200 OK`.
-* **Conectividad Interbancaria Directa:**
-  * `R1 -> B2 (10.0.0.5)`: 100% éxito (RTT 4 ms).
-  * `R1 -> B4 (10.0.0.10)`: 100% éxito (RTT 4 ms).
-  * `R1 -> B4-B5 (10.0.0.13, 10.0.0.14)`: 100% éxito (RTT 8-16 ms).
-* **Conmutación de Failover y Estado Actual de Tracks (Verificado en Vivo):**
-  * `Track 1` (SLA 1 hacia B1 `10.0.0.1` vía B2 `10.0.0.5`): **UP** (Retorno `OK`, RTT 76 ms).
-  * `Track 2` (SLA 2 hacia B1 `10.0.0.18` vía B4 `10.0.0.10`): **DOWN** (Retorno `Timeout`).
-  * **Comportamiento en la RIB:** Con Track 1 UP, la ruta primaria hacia `10.0.0.0/30 via 10.0.0.5` está activa (AD 1). Con Track 2 DOWN, la ruta primaria hacia `10.0.0.16/30 via 10.0.0.10` fue retirada y se instaló automáticamente la ruta flotante `10.0.0.16/30 via 10.0.0.5` (AD 10).
+Auditoría integral ejecutada desde los nodos de Banco 3 (R1 y WEB01) sobre la totalidad de vecinos, segmentos de tránsito y servicios del anillo:
+
+### 13.1. Vecinos Directos
+* **Banco 2 (`10.0.0.5` vía `FastEthernet1/0`):** **100% OK** (3/3 pings exitosos, RTT avg 20 ms). Estado L1/L2: **UP / UP**.
+* **Banco 4 (`10.0.0.10` vía `FastEthernet2/0`):** **100% OK** (3/3 pings exitosos, RTT avg 21 ms). Estado L1/L2: **UP / UP**.
+
+### 13.2. Redes del Anillo y Conectividad L3
+* **Red `10.0.0.0/30` (B1-B2):** **ALCANZABLE**.
+  * Destinos: `10.0.0.1` (B1) 100% OK (RTT avg 54 ms) / `10.0.0.2` (B2) 100% OK (RTT avg 42 ms).
+  * Ruta activa: Primaria `10.0.0.0/30 via 10.0.0.5` (AD 1, condicionada a Track 1).
+  * Traceroute: Salto 1 -> `10.0.0.5` (4 ms) -> Salto 2 -> `10.0.0.1` (32 ms).
+* **Red `10.0.0.4/30` (B2-B3):** **ALCANZABLE**.
+  * Destino: `10.0.0.5` (B2) 100% OK (RTT 4 ms). Directamente conectada en `Fa1/0` (AD 0).
+* **Red `10.0.0.8/30` (B3-B4):** **ALCANZABLE**.
+  * Destino: `10.0.0.10` (B4) 100% OK (RTT 8 ms). Directamente conectada en `Fa2/0` (AD 0).
+* **Red `10.0.0.12/30` (B4-B5):** **ALCANZABLE**.
+  * Destinos: `10.0.0.13` (B4) 100% OK (RTT 20 ms) / `10.0.0.14` (B5) 100% OK (RTT 20 ms).
+  * Ruta activa: Primaria `10.0.0.12/30 via 10.0.0.10` (AD 1).
+  * Traceroute: Salto 1 -> `10.0.0.10` (4 ms) -> Salto 2 -> `10.0.0.14` (32 ms).
+* **Red `10.0.0.16/30` (B5-B1):** **PARCIALMENTE ALCANZABLE**.
+  * Destino `10.0.0.17` (B5): **ALCANZABLE** forzando salida `Fa2/0` (100% OK, RTT 20 ms).
+  * Destino `10.0.0.18` (B1): **TIMEOUT** (0% éxito).
+  * Causa raíz de la asimetría: Banco 1 tiene su ruta hacia `10.0.0.8/30` orientada a Banco 2 (`10.0.0.2`) en lugar de responder por Banco 5. Al ingresar el ping por su interfaz este (`10.0.0.18`), B1 devuelve el paquete a B2, donde B2 tiene su track hacia B4 caído y lo descarta en `Null0`.
+  * Ruta activa en RIB de R1: Flotante `10.0.0.16/30 [10/0] via 10.0.0.5` activa debido a Track 2 en DOWN.
+
+### 13.3. IP SLA, Object Tracking y Local PBR
+* **SLA 1 (`10.0.0.1` vía `Fa1/0`):** **UP** (`Latest operation return code: OK`, RTT: 12 ms). Sonda forzada a `10.0.0.5` por Local PBR `RM-LOCAL-SLA`. Controla ruta primaria a `10.0.0.0/30`.
+* **SLA 2 (`10.0.0.18` vía `Fa2/0`):** **DOWN** (`Latest operation return code: Timeout`). Sonda forzada a `10.0.0.10` por Local PBR `RM-LOCAL-SLA`. Al estar DOWN, retira la primaria de `10.0.0.16/30` e instala la flotante por B2.
+
+### 13.4. Evaluación de Failover y Bucles Potenciales
+* **Failover Oeste (B3 -> B2 -> B1):** Si B2 cae, R1 conmuta `10.0.0.0/30` a la flotante vía B4 (`10.0.0.10 AD 10`). Con B1 activo, B4 entrega a B5 y B5 a B1 sin bucles.
+* **Failover Este (B3 -> B4 -> B5 -> B1):** Estado actual activo para `10.0.0.16/30` vía B2 (`10.0.0.5 AD 10`). Banco 2 entrega hacia B1 y **NO rebota hacia B3** debido a que condicionó su flotante a Track 8 (DOWN) y cuenta con `Null0 /27`.
+* **Riesgo Residual de Bucle B4-B5:** Ocurre exclusivamente ante **doble fallo simultáneo** (B1 caído en el oeste Y B2 caído en el este), lo que fragmentaría el anillo activando simultáneamente las flotantes cruzadas de B4 y B5. En el estado actual con B1 y B2 operativos, este bucle se encuentra inactivo.
+
+### 13.5. Servicios Interbancarios Probados
+* **Banco 1 (`10.0.0.1:80`):** **OPERATIVO**. Petición HTTP GET responde `HTTP/1.0 200 OK` sirviendo el portal web interno ("Banco 1 - Portal Interno").
+* **Banco 1 (`10.0.0.1:80/interbancaria`):** **NO DISPONIBLE**. Responde `HTTP/1.0 404 Not Found` (falta implementar endpoint transaccional en B1).
+* **Banco 1 (`10.0.0.1:8080`):** **TIMEOUT** (puerto no alcanzable desde B3).
+* **Banco 2 (`10.0.0.2:5001`):** **TIMEOUT** (la publicación NAT de B2 solo está activa en su interfaz Fa2/0 hacia B1, no en Fa3/0 hacia B3).
+* **Banco 4 (`10.0.0.10:8080`):** **CONNECTION REFUSED** (RST devuelto por B4; L3 operativo, servicio no atiende en esa interfaz).
+* **Banco 5 (`10.0.0.14:80`):** **CONNECTION REFUSED** (RST devuelto por B5; L3 operativo, sin servicio HTTP).
 
 ---
 
 ## 14. Problemas Conocidos y Dependencias Externas
 
-1. **Inalcanzabilidad de Banco 1:** `10.0.0.1` y `10.0.0.18` en timeout persistente.
-2. **Inconsistencia de Enrutamiento en B4/B5:** Bucle cerrado entre B4 y B5 ante la caída de B1.
-3. **Inconsistencia de Enrutamiento en B2:** Rebote de tráfico hacia B3 para la red `10.0.0.16/30`.
-4. **Falta de Ruta de Retorno en B4:** Banco 4 no puede responder tráfico originado en `10.0.0.4/30` por falta de `ip route 10.0.0.4 255.255.255.252 10.0.0.9`.
+1. **Falta de ruta simétrica de retorno en Banco 1 para `10.0.0.8/30`:** Banco 1 enruta `10.0.0.8/30` únicamente por B2. Para que las sondas de SLA 2 y el tráfico directo del arco este alcancen `10.0.0.18`, B1 requiere ajustar su tabla o B2 restaurar su tránsito.
+2. **Endpoint `/interbancaria` en Banco 1:** El servidor HTTP en `10.0.0.1:80` responde 404 para transacciones interbancarias.
+3. **Publicación de servicios en Banco 2 hacia Banco 3:** Banco 2 requiere habilitar NAT/PAT sobre Fa3/0 si desea que Banco 3 consuma directamente su API en `5001`.
+4. **Revisión de bucle B4-B5 ante doble contingencia:** Banco 5 debe revisar su ruta de respaldo hacia `10.0.0.0/30` para condicionarla a track y evitar devolver paquetes hacia B4 (`10.0.0.13`) cuando B1 esté desconectado.
 
 ---
 
