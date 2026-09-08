@@ -1,7 +1,7 @@
 # Banco 1 (Banca minorista con sucursales)
 
 ## Estado
-Última actualización: 2026-09-08 (post-rearranque limpio del nodo con config v8.1 y re-verificación del anillo)
+Última actualización: 2026-09-08 (config v8.2: observación del anillo con IP SLA + EEM, verificada con rearranque limpio)
 Agente/responsable: Agente Banco 1
 
 ## Verificación global del anillo
@@ -59,7 +59,7 @@ Cambio importante vs 2026-09-07: **el segmento `10.0.0.8/30` (B3-B4) ya es alcan
 * B4 (`.10`) alcanzable por el arco oeste; `.13` (B4-B5) NO por el este. PENDIENTE B4/B5.
 * `.12/30` "muerto en caliente": primaria apunta a `.17` (B5) mudo. PENDIENTE B5.
 * TCP `10.0.0.6:80` (B3) sin respuesta — PENDIENTE B3.
-* `ESTADO_ANILLO.md`/`BANCO2.md` desactualizados respecto al arco oeste (B1→B2→B3→B4 ya funciona) y aún no reflejan el fix v8.1 de B1 ni el estado "B5 mudo".
+* `ESTADO_ANILLO.md`/`BANCO2.md` desactualizados respecto al arco oeste (B1→B2→B3→B4 ya funciona) y aún no reflejan el fix v8.1 de B1 ni el estado este "B5 flapeando".
 * Drill de failover coordinado pendiente.
 
 ## Interfaces de tránsito
@@ -87,14 +87,38 @@ Cambio importante vs 2026-09-07: **el segmento `10.0.0.8/30` (B3-B4) ya es alcan
 
 > **Eliminado en v8.1 (2026-09-07/08):** `10.0.0.16/30 via 10.0.0.2 20 track 1` (wrap del propio segmento este por el oeste). En fallo del este, ese wrap generaba loop B1↔B2: B1 reenviaba `.16/30` a B2 y B2 (por su track 3, que solo exige a B1 vivo) lo devolvía a B1 incesantemente. Eliminado y verificado por boot-test de persistencia.
 
-Lógica: sin "entrada primaria" (es un anillo). Cada segmento lejano se alcanza por el arco corto (AD 1) y, si cae su track, vira por el arco contrario (AD 20) plegando el anillo. La config canónica vigente es **v8.1** (persistida en el config-disk `IOSv_startup_config.img`, no solo en overlay).
+Lógica: sin "entrada primaria" (es un anillo). Cada segmento lejano se alcanza por el arco corto (AD 1) y, si cae su track, vira por el arco contrario (AD 20) plegando el anillo. La config canónica vigente es **v8.2** (persistida en el config-disk `IOSv_startup_config.img`, no solo en overlay).
+
+## Sondas remotas hacia B1 (otros bancos → nuestras IPs)
+Confirmado en documentación de los vecinos (2026-09-07/08):
+* **B2 → `10.0.0.1`** (SLA 1, cada 5 s, nuestra Gi0/1 oeste). Controla su ruta a `10.0.0.0/30`.
+* **B3 → `10.0.0.1`** (SLA 1, vía Fa1/0/B2) y **`10.0.0.18`** (SLA 2, vía B4/B5 por el este), con Local PBR. Controlan sus primarias a `10.0.0.0/30` y `10.0.0.16/30`.
+* **B4 → `10.0.0.18`** (Track B1, cada 2 s, vía B5). Controla su primaria a `10.0.0.16/30`.
+* **B5 → `10.0.0.18`** (SLA 3, cada 5 s). Controla su ruta a `10.0.0.0/30`.
+* Nuestro nodo responde los sondeos (ICMP a sus IPs por defecto). Evidencia `show ip traffic`: cientos de `echo` recibidos / `echo reply` enviados desde el boot.
+* Hoy solo reciben los del **arco oeste** (B2/B3 a `.1`): los del este (B3/B4/B5 hacia `.18`) dependen de que B5 esté vivo y estable.
 
 ## IP SLA
-* **Ninguno configurado (eliminados).** En IOSv, el scheduler del SLA resultó *single-shot* (no re-ejecuta pese a `frequency`) y los vecinos no responden ICMP echo a sondas. Se sustituyó por tracks de línea de interfaz.
+* **Uso en routing: NINGUNO** (las rutas siguen gobernadas por tracks de línea 1/2; los SLAs no controlan ninguna ruta).
+* **IP SLA de observación (v8.2, 2026-09-08):** 5 sondas ICMP echo cada 5 s para monitorear los tramos del anillo. El scheduler **sí re-ejecuta** en este IOSv (contador de éxitos crece en vivo: 58→63 en 20 s), a diferencia de la limitación observada en la sesión previa con SLAs que controlaban rutas.
+* `show ip sla statistics` / `show track brief` dan el estado de cada tramo en un vistazo.
 
 ## Tracks
 * `track 1` interface `GigabitEthernet0/1` line-protocol — **Up** (oeste/B2)
 * `track 2` interface `GigabitEthernet0/2` line-protocol — **Up** (este/B5)
+* `track 3` ip sla 1 (`10.0.0.2` B1-B2) — **Up** (2026-09-08)
+* `track 4` ip sla 2 (`10.0.0.6` B2-B3) — **Up**
+* `track 5` ip sla 3 (`10.0.0.10` B3-B4) — **Up**
+* `track 6` ip sla 4 (`10.0.0.17` B1-B5) — **Down** (B5 no responde; PENDIENTE B5)
+* `track 7` ip sla 5 (`10.0.0.13` B4-B5) — **Down** (depende de B5; PENDIENTE B5)
+* Los tracks 3-7 son **solo observación** (no referenciados por ninguna `ip route`), cero impacto en failover.
+
+## Log de observación del anillo (EEM, v8.2)
+* 5 applets EEM (`RING_SEG_B1-B2`, `RING_SEG_B2-B3`, `RING_SEG_B3-B4`, `RING_SEG_B1-B5`, `RING_SEG_B4-B5`), un evento por applet (`event track <n> state any`), registradas en `show event manager policy registered`.
+* Ante cada transición de track emiten syslog `%HA_EM-6-LOG: RING_SEG_<SEG>: RING SEG <SEG> track=up|down`. Verificado en vivo en el boot de v8.2:
+  `*Sep 8 01:08:06.876: %HA_EM-6-LOG: RING_SEG_B1-B2: RING SEG B1-B2 track=up` (y B2-B3, B3-B4).
+* **Ojo IOSv:** la variable EEM `$_track_name` **NO existe** en este IOS (genera `%HA_EM-3-FMPD_UNKNOWN_ENV`+`%HA_EM-3-FMPD_ERROR`); por eso las applets usan etiquetas literales y solo `$_track_state`, que sí funciona.
+* Los mensajes de transición nativos `%TRACK-6-STATE` del tracking también quedan en el buffer (`show logging`).
 
 ## PBR / Route Maps
 * Ninguno.
@@ -117,8 +141,8 @@ Re-verificación 2026-09-08 post-restart (ping 2/2 con `repeat 2 timeout 2`, sal
 * ping `10.0.0.5` (interfaz lejana de B2): 100%.
 * ping `10.0.0.6` (**B3**, vía B2): 100%, ~47-68 ms — tránsito del anillo oeste OK.
 * ping `10.0.0.9` / `10.0.0.10` (**B3 / B4**): 100% (RTT ~60-121 ms a `.10`) — **`10.0.0.8/30` (B3-B4) ya transita por B2/B3**; traceroute `.10` completa: B1→`.2`→`.6`→`.10`.
-* ping `10.0.0.17` (B5): **0% (0/2)** — enlace Gi0/2 UP pero B5 no responde. PENDIENTE DE CONFIRMACIÓN POR BANCO 5.
-* ping `10.0.0.13` (B4, vía B5) / `10.0.0.14` (B5): **0% (0/2)** — arco este inaccesible por B5 mudo.
+* ping `10.0.0.17` (B5): **flapeando** — respondió brevemente ~00:58 (RTT 8-10 ms) y volvió a caer; tras el rearranque v8.2 (01:07) da timeout 0/2. PENDIENTE DE CONFIRMACIÓN POR BANCO 5.
+* ping `10.0.0.13` (B4, vía B5) / `10.0.0.14` (B5): **0%** en el arco este mientras B5 no responde (respondieron también ~00:58).
 * ping `10.10.2.2` (FW interno): 100% (~1 ms).
 * ARP vivos: `10.0.0.2` (`ca01.d8af.0038`). B5 sin ARP válido en uso (Gi0/2 arriba, sin respuesta).
 * Respuesta ICMP de B1 a sondas externas: **PENDIENTE DE CONFIRMACIÓN POR BANCO 2/3/5** (no es posible originar la sonda desde el propio nodo).
@@ -130,7 +154,7 @@ Re-verificación 2026-09-08 post-restart (ping 2/2 con `repeat 2 timeout 2`, sal
 * Bucles B4-B5 reportados por B3/B4/B5 (`.0/30` y `.4/30`, ante doble falla simultánea B1+B2): con B1 activo y arco oeste sano no se observan desde B1; hoy el arco este (B5) está mudo y no permite re-probar. PENDIENTE de coordinación con B4/B5.
 
 ## Problemas conocidos
-* `ESTADO_ANILLO.md` (B3) y `BANCO2.md` desactualizados: siguen sin reflejar que `10.0.0.8/30` (B3-B4) YA es alcanzable por el arco oeste desde B1 (B1→B2→B3→B4), ni el fix v8.1 de B1, ni el estado "B5 mudo" en el este.
+* `ESTADO_ANILLO.md` (B3) y `BANCO2.md` desactualizados: siguen sin reflejar que `10.0.0.8/30` (B3-B4) YA es alcanzable por el arco oeste desde B1 (B1→B2→B3→B4), ni el fix v8.1 + observación v8.2 de B1, ni el estado este "B5 flapeando".
 * Arco este: Gi0/2 UP pero B5 (`10.0.0.17`) no responde ICMP → `.13`/`.14` inalcanzables desde B1 (PENDIENTE DE CONFIRMACIÓN POR BANCO 5).
 * `/interbancaria` → HTTP 404 (ver servicios).
 * IOSv: segundo estático NAT con global `10.0.0.18` no persiste.
@@ -141,7 +165,8 @@ Re-verificación 2026-09-08 post-restart (ping 2/2 con `repeat 2 timeout 2`, sal
 * 2026-09-07: reconexión del cable físico del enlace este (B5).
 * 2026-09-07/08: **fix de config → versión canónica v8.1**: eliminado el wrap `10.0.0.16/30 via 10.0.0.2 20 track 1` (riesgo de loop B1↔B2) y el residual `ip route 10.0.0.4 via 10.0.0.2` sin track; añadido `no shutdown` explícito en Gi0/0-3 para rearranques limpios. Inyectado en el config-disk `IOSv_startup_config.img` (master + overlay del nodo).
 * 2026-09-08: **rearranque real limpio del nodo B1** para validar persistencia (CVAC CONFIG_FOUND/DONE desde flash2, sin parser errors; interfaces UP, tracks UP, rutas v8.1). Durante el apagado (~2 min) el anillo quedó sin tránsito ni presencia de B1; operación restaurada.
-* 2026-09-08: re-verificación del anillo post-restart → arco oeste completo OK (B1→B2→B3→B4, incl. `10.0.0.8/30` que antes daba `!H`); arco este B5 mudo (PENDIENTE B5).
+* 2026-09-08: re-verificación del anillo post-restart → arco oeste completo OK (B1→B2→B3→B4, incl. `10.0.0.8/30` que antes daba `!H`); arco este B5 **flapeando** (PENDIENTE B5).
+* 2026-09-08: **config v8.2 — observación del anillo**: 5 IP SLAs (echo 5 s a `.2`/`.6`/`.10`/`.17`/`.13`) + tracks 3-7 (sin control de rutas) + 5 applets EEM `RING_SEG_*` que loguean transición por tramo. Persistida en config-disk y validada con rearranque limpio (CVAC CONFIG_DONE, sin `%PARSER`; EEM `%HA_EM-6-LOG: RING SEG ... track=up` en arco oeste; tracks 6-7 Down al no responder B5).
 
 ## Pendientes
 * Definir/implementar el endpoint `/interbancaria` y validarlo desde B2/B5.
@@ -150,7 +175,7 @@ Re-verificación 2026-09-08 post-restart (ping 2/2 con `repeat 2 timeout 2`, sal
 * Revalidar conectividad ICMP hacia B1 desde B2/B3/B5 y actualización de `ESTADO_ANILLO.md` (B3) con el arco oeste sano.
 
 ## Notas para otros bancos
-* **B3 (coordinador):** re-ejecutar sus sondas SLA/PBR hacia B1 y hacia `.8/30`: el nodo responde ICMP, el arco oeste hasta `.10` (B4) está operativo y B1 ya no tiene dead-route hacia `.8/30`. `ESTADO_ANILLO.md` debe actualizarse (arco oeste OK, B5 mudo, fix v8.1 de B1). El requerimiento de su Paso 2 (`ip route 10.0.0.8 ... 10.0.0.17 20 track 2`) ya está satisfecho en B1 desde v7 (y en v8.1 permanece).
+* **B3 (coordinador):** re-ejecutar sus sondas SLA/PBR hacia B1 y hacia `.8/30`: el nodo responde ICMP, el arco oeste hasta `.10` (B4) está operativo y B1 ya no tiene dead-route hacia `.8/30`. `ESTADO_ANILLO.md` debe actualizarse (arco oeste OK, B5 flapeando, fix v8.1 + observación v8.2 de B1). El requerimiento de su Paso 2 (`ip route 10.0.0.8 ... 10.0.0.17 20 track 2`) ya está satisfecho en B1 desde v7 (y en v8.2 permanece).
 * **B2:** confirmar corrección del estado de sus tracks 4/6 (el tráfico B1→B4 vía `.8/30` YA transita por B2/B3; sus docs siguen listando Null0).
 * **B5:** POR FAVOR confirmar su nodo: desde B1 el enlace Gi0/2 está UP pero `10.0.0.17` no responde (0/2), afectando `.13`/`.14` y dejando `.12/30` "muerto en caliente". B5.md reportaba operatividad a las 17:43 UTC-6.
 * **B4:** por `.13` (interfaz hacia B5) inalcanzable desde el arco este; el `.10` (hacia B3) es alcanzable vía oeste. Confirmar sostenibilidad de su failover Track B2 (según su doc, DOWN) — el oeste ya devuelve tráfico.
