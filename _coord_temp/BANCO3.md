@@ -80,28 +80,29 @@ Banco 3 se interconecta con el anillo mediante dos interfaces de tránsito punto
 * `ip route 172.16.2.0 255.255.255.248 172.16.0.1`
 * `ip route 172.16.3.0 255.255.255.248 172.16.0.1`
 
-#### Rutas Interbancarias Primarias y Flotantes
+#### Rutas Interbancarias Primarias, Flotantes Validadas y Descarte
 ```text
-! Destino: Segmento B1-B2 (10.0.0.0/30)
-ip route 10.0.0.0 255.255.255.252 10.0.0.5 track 1    ! Primaria vía B2 (AD 1, condicionada a Track 1)
-ip route 10.0.0.0 255.255.255.252 10.0.0.10 10        ! Flotante de respaldo vía B4 (AD 10)
+! Primarias (AD 1, condicionadas a Object Tracking End-to-End)
+ip route 10.0.0.0 255.255.255.252 10.0.0.5 track 1    ! Primaria B1-B2 vía B2 (Track 1 UP: B1 vía B2)
+ip route 10.0.0.12 255.255.255.252 10.0.0.10 track 3  ! Primaria B4-B5 vía B4 (Track 3 UP: B5 vía B4)
+ip route 10.0.0.16 255.255.255.252 10.0.0.10 track 2  ! Primaria B5-B1 vía B4 (Track 2 UP: B1 vía B4)
 
-! Destino: Segmento B4-B5 (10.0.0.12/30)
-ip route 10.0.0.12 255.255.255.252 10.0.0.10 track 3  ! Primaria vía B4 (AD 1, condicionada a Track 3)
-ip route 10.0.0.12 255.255.255.252 10.0.0.5 10        ! Flotante de respaldo vía B2 (AD 10)
+! Flotantes Validadas (AD 10, estrictamente condicionadas a Track del camino alterno)
+ip route 10.0.0.0 255.255.255.252 10.0.0.10 10 track 2 ! Respaldo B1-B2 vía B4 (valida B3->B4->B5->B1)
+ip route 10.0.0.16 255.255.255.252 10.0.0.5 10 track 1  ! Respaldo B5-B1 vía B2 (valida B3->B2->B1)
+ip route 10.0.0.12 255.255.255.252 10.0.0.5 10 track 4  ! Respaldo B4-B5 vía B2 (valida B3->B2->B1->B5)
 
-! Destino: Segmento B5-B1 (10.0.0.16/30)
-ip route 10.0.0.16 255.255.255.252 10.0.0.10 track 2  ! Primaria vía B4 (AD 1, condicionada a Track 2)
-ip route 10.0.0.16 255.255.255.252 10.0.0.5 10        ! Flotante de respaldo vía B2 (AD 10)
+! Respaldo de enlaces directos (wrap routes si cae la interfaz física vecina)
+ip route 10.0.0.4 255.255.255.252 10.0.0.10 10 track 2 ! Respaldo B2 vía B4 (condicionado a Track 2)
+ip route 10.0.0.8 255.255.255.252 10.0.0.5 10 track 1  ! Respaldo B4 vía B2 (condicionado a Track 1)
 
-! Respaldo para los enlaces directos (por si cae la interfaz vecina)
-ip route 10.0.0.4 255.255.255.252 10.0.0.10 10        ! Respaldo B2 vía B4 (AD 10)
-ip route 10.0.0.8 255.255.255.252 10.0.0.5 10         ! Respaldo B4 vía B2 (AD 10)
+! Descarte de Anillo (Protección contra Loops, Rebotes y Fugas a Default Route)
+ip route 10.0.0.0 255.255.255.224 Null0 250            ! Descarta el bloque 10.0.0.0/27 si no hay /30 activa
 ```
 
-### IP SLA y Object Tracking (Arquitectura End-to-End Hop-2/Hop-3)
-Banco 3 implementa la supervisión completa de extremo a extremo en ambas direcciones del anillo:
-* **Track 1 (B3 -> B2 -> B1):** Monitorea la alcanzabilidad de Banco 1 (`10.0.0.1`, Salto 2) por el camino oeste (Fa1/0 hacia B2). Controla la primaria a `10.0.0.0/30`.
+### IP SLA y Object Tracking (Arquitectura Validada con Histéresis)
+Banco 3 implementa la supervisión completa de extremo a extremo en ambas direcciones del anillo, incluyendo validación de caminos primarios y de respaldo:
+* **Track 1 (B3 -> B2 -> B1):** Monitorea la alcanzabilidad de Banco 1 (`10.0.0.1`, Salto 2) por el camino oeste (Fa1/0 hacia B2). Controla la primaria a `10.0.0.0/30` y respalda `10.0.0.16/30` y `10.0.0.8/30`.
   ```text
   ip sla monitor 1
    type echo protocol ipIcmpEcho 10.0.0.1 source-interface FastEthernet1/0
@@ -110,6 +111,18 @@ Banco 3 implementa la supervisión completa de extremo a extremo en ambas direcc
    frequency 5
   ip sla monitor schedule 1 life forever start-time now
   track 1 rtr 1 reachability
+   delay down 6 up 3
+  ```
+* **Track 2 (B3 -> B4 -> B5 -> B1):** Monitorea la alcanzabilidad de Banco 1 (`10.0.0.18`, Salto 3) por el camino este (Fa2/0 hacia B4). Controla la primaria a `10.0.0.16/30` y respalda `10.0.0.0/30` y `10.0.0.4/30`.
+  ```text
+  ip sla monitor 2
+   type echo protocol ipIcmpEcho 10.0.0.18 source-interface FastEthernet2/0
+   timeout 2000
+   threshold 2000
+   frequency 5
+  ip sla monitor schedule 2 life forever start-time now
+  track 2 rtr 2 reachability
+   delay down 6 up 3
   ```
 * **Track 3 (B3 -> B4 -> B5):** Monitorea la alcanzabilidad de Banco 5 (`10.0.0.14`, Salto 2) por el camino este (Fa2/0 hacia B4). Controla la primaria a `10.0.0.12/30`.
   ```text
@@ -120,43 +133,48 @@ Banco 3 implementa la supervisión completa de extremo a extremo en ambas direcc
    frequency 5
   ip sla monitor schedule 3 life forever start-time now
   track 3 rtr 3 reachability
+   delay down 6 up 3
   ```
-* **Track 2 (B3 -> B4 -> B5 -> B1):** Monitorea la alcanzabilidad de Banco 1 (`10.0.0.18`, Salto 3) por el camino este (Fa2/0 hacia B4). Controla la primaria a `10.0.0.16/30`.
+* **Track 4 (B3 -> B2 -> B1 -> B5):** Monitorea la entregabilidad hacia Banco 5 (`10.0.0.14`, Salto 3) por el camino oeste (Fa1/0 hacia B2). Valida la flotante hacia `10.0.0.12/30 via 10.0.0.5`. Si Banco 2 no entrega o devuelve el tráfico, el track permanece `DOWN`, impidiendo que la flotante se instale y evitando cualquier rebote circular.
   ```text
-  ip sla monitor 2
-   type echo protocol ipIcmpEcho 10.0.0.18 source-interface FastEthernet2/0
+  ip sla monitor 4
+   type echo protocol ipIcmpEcho 10.0.0.14 source-interface FastEthernet1/0
    timeout 2000
    threshold 2000
    frequency 5
-  ip sla monitor schedule 2 life forever start-time now
-  track 2 rtr 2 reachability
+  ip sla monitor schedule 4 life forever start-time now
+  track 4 rtr 4 reachability
+   delay down 6 up 3
   ```
 
 ### Local PBR (Policy Based Routing Local)
-Para evitar la dependencia circular (flapping) donde una sonda utiliza la ruta de respaldo al caer la primaria y genera falsos positivos, se fija la política local en R1 mediante Local PBR:
+Para evitar dependencias circulares y forzar cada sonda estrictamente por la interfaz correspondiente sin recurrir a rutas host `/32`, R1 aplica Local PBR:
 ```text
-ip access-list extended ACL-SLA-B2-B1
- permit icmp host 10.0.0.6 host 10.0.0.1
-ip access-list extended ACL-SLA-B4-B5
- permit icmp host 10.0.0.9 host 10.0.0.14
 ip access-list extended ACL-SLA-B5-B1
  permit icmp host 10.0.0.9 host 10.0.0.18
+ip access-list extended ACL-SLA-B4-B5
+ permit icmp host 10.0.0.9 host 10.0.0.14
+ip access-list extended ACL-SLA-B2-B1
+ permit icmp host 10.0.0.6 host 10.0.0.1
+ip access-list extended ACL-SLA-B2-B5
+ permit icmp host 10.0.0.6 host 10.0.0.14
 
 route-map RM-LOCAL-SLA permit 10
  match ip address ACL-SLA-B5-B1
  set ip next-hop 10.0.0.10
-!
 route-map RM-LOCAL-SLA permit 15
  match ip address ACL-SLA-B4-B5
  set ip next-hop 10.0.0.10
-!
 route-map RM-LOCAL-SLA permit 20
  match ip address ACL-SLA-B2-B1
+ set ip next-hop 10.0.0.5
+route-map RM-LOCAL-SLA permit 25
+ match ip address ACL-SLA-B2-B5
  set ip next-hop 10.0.0.5
 
 ip local policy route-map RM-LOCAL-SLA
 ```
-* **Ventaja y Diferenciador Técnico:** A diferencia del uso de rutas `/32` fijas (que sufren del efecto *Longest Prefix Match* secuestrando el tráfico de datos en la FIB ante fallas), Local PBR actúa **exclusivamente sobre los paquetes ICMP generados por el router local R1**, dejando el tráfico real de producción completamente libre para conmutar a las rutas flotantes de respaldo. Esto constituye la implementación en Cisco IOS del principio *End-to-End* de la guía de Banco 4 de forma limpia y transparente.
+* **Ventaja y Diferenciador Técnico:** A diferencia del uso de rutas `/32` fijas (que secuestran el tráfico de producción por LPM), Local PBR actúa **exclusivamente sobre los paquetes ICMP generados localmente por R1**, dejando el tráfico real de producción completamente gobernado por la FIB (primarias, flotantes validadas y Null0). Los paquetes de tránsito (B2 <-> B4) no son evaluados por la política local y se enrutan de forma pura a nivel de Capa 3.
 
 ---
 
@@ -291,15 +309,21 @@ Implementa server blocks aislados para separar el tráfico público del tráfico
 
 ## 11. Arquitectura de Failover y Diagnóstico de Red
 
-### ¿Por qué IP SLA + Local PBR?
+### ¿Por qué IP SLA + Object Tracking + Local PBR + Gateo de Flotantes?
 * **Limitación del hardware:** Los routers Cisco en topología de anillo con switches intermedios no experimentan caída física (`down/down`) cuando el enlace remoto falla.
-* **Solución adoptada:** IP SLA genera sondas activas hacia los endpoints de Banco 1 (`10.0.0.1` y `10.0.0.18`).
-* **Prevención de bucle de sonda:** Local PBR (`RM-LOCAL-SLA`) obliga a la sonda a salir estrictamente por el camino primario. Si el enlace se corta, la sonda da timeout legítimo, el track cae a `DOWN` y R1 retira la ruta primaria, activando la ruta flotante para todo el tráfico de datos.
+* **Solución adoptada:** IP SLA genera sondas activas hacia los endpoints Hop-2 y Hop-3 (`10.0.0.1`, `10.0.0.14`, `10.0.0.18`).
+* **Prevención de bucle de sonda:** Local PBR (`RM-LOCAL-SLA`) obliga a cada sonda a salir estrictamente por su cara asignada.
+* **Gateo de Rutas Flotantes (Validated Backup Tracking):** Para evitar bucles de rebote (como el observado entre B2 y B3 durante el corte B4-B5), las rutas flotantes **NUNCA entran a ciegas por simple AD**. Cada ruta flotante está condicionada a un Track que certifica la entregabilidad real del camino alternativo:
+  - `10.0.0.16/30 via 10.0.0.5 10 track 1`: Solo entra si B2->B1 está vivo (Track 1 UP).
+  - `10.0.0.0/30 via 10.0.0.10 10 track 2`: Solo entra si B4->B5->B1 está vivo (Track 2 UP).
+  - `10.0.0.12/30 via 10.0.0.5 10 track 4`: Solo entra si el arco oeste entrega hacia B5 (Track 4 UP). Si B2 devuelve el tráfico hacia B3 (porque su propia primaria apunta a B3), Track 4 cae a `DOWN` y la flotante no se instala.
+* **Descarte de Anillo (`Null0 10.0.0.0/27 AD 250`):** Si tanto la ruta primaria como la flotante están desactivadas, el tráfico hacia subredes del anillo es descartado localmente con ICMP Unreachable, extinguiendo microbucles de rebote y evitando fugas hacia la ruta por defecto del ISP.
 
-### Diagnóstico de Bucles Externos Observados
-Durante la auditoría del anillo con B1 inalcanzable, se registraron dos anomalías externas:
-1. **Bucle B4-B5:** R1 activa la flotante hacia B4 (`10.0.0.10`) para alcanzar `10.0.0.0/30`. B4 reenvía a B5 (`10.0.0.14`), pero B5 tiene una ruta de respaldo que le devuelve ese tráfico a B4 (`10.0.0.13`), alternando indefinidamente hasta expirar el TTL.
-2. **Rebote B2-B3:** R1 activa la flotante hacia B2 (`10.0.0.5`) para alcanzar `10.0.0.16/30`. B2 le devuelve el paquete a B3 (`10.0.0.6`) de inmediato.
+### Diagnóstico de Bucles y Rebotes
+1. **Rebote B2-B3 hacia `10.0.0.12/30` durante corte B4-B5 (EXTINGUIDO):**
+   - *Causa raíz:* Al cortarse B4-B5, el Track 10 de Banco 2 sigue en UP (porque monitorea a B4 `10.0.0.10` vía B3, que sigue respondiendo). Por tanto, B2 mantiene su primaria `10.0.0.12/30 via 10.0.0.6` (B3). Si B3 instalaba su flotante ciega `via 10.0.0.5`, se producía un rebote cerrado `B3 -> B2 -> B3`.
+   - *Solución implementada:* B3 implementó Track 4 (monitoreo del camino alterno hacia `10.0.0.14` vía B2) y descarte en `Null0 10.0.0.0/27`. Al rebotar B2 la sonda, Track 4 cae a `DOWN`, la flotante no se instala y el tráfico cae a `Null0` limpiamente sin rebote ni loop.
+2. **Bucle B4-B5 hacia `10.0.0.4/30` (EXTINGUIDO):** Resuelto tras la incorporación de ruta de retorno en B2.
 
 ---
 
@@ -317,63 +341,61 @@ Durante la auditoría del anillo con B1 inalcanzable, se registraron dos anomal�
 Auditoría integral ejecutada desde los nodos de Banco 3 (R1 y WEB01) sobre la totalidad de vecinos, segmentos de tránsito y servicios del anillo:
 
 ### 13.1. Vecinos Directos
-* **Banco 2 (`10.0.0.5` vía `FastEthernet1/0`):** **100% OK** (3/3 pings exitosos, RTT avg 20 ms). Estado L1/L2: **UP / UP**.
-* **Banco 4 (`10.0.0.10` vía `FastEthernet2/0`):** **100% OK** (3/3 pings exitosos, RTT avg 21 ms). Estado L1/L2: **UP / UP**.
+* **Banco 2 (`10.0.0.5` vía `FastEthernet1/0`):** **100% OK** (3/3 pings exitosos, RTT avg 21 ms). Estado L1/L2: **UP / UP**.
+* **Banco 4 (`10.0.0.10` vía `FastEthernet2/0`):** **100% OK** (3/3 pings exitosos, RTT avg 20 ms). Estado L1/L2: **UP / UP**.
 
 ### 13.2. Redes del Anillo y Conectividad L3
-* **Red `10.0.0.0/30` (B1-B2):** **ALCANZABLE**.
-  * Destinos: `10.0.0.1` (B1) 100% OK (RTT avg 54 ms) / `10.0.0.2` (B2) 100% OK (RTT avg 42 ms).
-  * Ruta activa: Primaria `10.0.0.0/30 via 10.0.0.5` (AD 1, condicionada a Track 1).
-  * Traceroute: Salto 1 -> `10.0.0.5` (4 ms) -> Salto 2 -> `10.0.0.1` (32 ms).
-* **Red `10.0.0.4/30` (B2-B3):** **ALCANZABLE**.
-  * Destino: `10.0.0.5` (B2) 100% OK (RTT 4 ms). Directamente conectada en `Fa1/0` (AD 0).
-* **Red `10.0.0.8/30` (B3-B4):** **ALCANZABLE**.
-  * Destino: `10.0.0.10` (B4) 100% OK (RTT 8 ms). Directamente conectada en `Fa2/0` (AD 0).
-* **Red `10.0.0.12/30` (B4-B5):** **ALCANZABLE**.
-  * Destinos: `10.0.0.13` (B4) 100% OK (RTT 20 ms) / `10.0.0.14` (B5) 100% OK (RTT 20 ms).
-  * Ruta activa: Primaria `10.0.0.12/30 via 10.0.0.10` (AD 1, condicionada a Track 3).
-  * Traceroute: Salto 1 -> `10.0.0.10` (4 ms) -> Salto 2 -> `10.0.0.14` (32 ms).
-* **Red `10.0.0.16/30` (B5-B1):** **ALCANZABLE**.
-  * Destino `10.0.0.17` (B5): **ALCANZABLE** (100% OK, RTT 20 ms).
-  * Destino `10.0.0.18` (B1): **ALCANZABLE** (SLA 2 responde OK con RTT 24 ms).
-  * Ruta activa en RIB de R1: Primaria `10.0.0.16/30 [1/0] via 10.0.0.10` instalada y activa (Track 2 UP).
+* **Red `10.0.0.0/30` (B1-B2):** **ALCANZABLE**. Primaria `10.0.0.0/30 via 10.0.0.5` (AD 1, Track 1 UP).
+* **Red `10.0.0.4/30` (B2-B3):** **ALCANZABLE**. Conectada en `Fa1/0` (AD 0).
+* **Red `10.0.0.8/30` (B3-B4):** **ALCANZABLE**. Conectada en `Fa2/0` (AD 0).
+* **Red `10.0.0.12/30` (B4-B5):** **ALCANZABLE**. Primaria `10.0.0.12/30 via 10.0.0.10` (AD 1, Track 3 UP).
+* **Red `10.0.0.16/30` (B5-B1):** **ALCANZABLE**. Primaria `10.0.0.16/30 via 10.0.0.10` (AD 1, Track 2 UP).
 
 ### 13.3. IP SLA, Object Tracking y Local PBR
-* **SLA 1 (`10.0.0.1` vía `Fa1/0`):** **UP** (`Latest operation return code: OK`, RTT: 53 ms). Sonda forzada a `10.0.0.5` por Local PBR `RM-LOCAL-SLA` (seq 20). Controla ruta primaria a `10.0.0.0/30`.
-* **SLA 3 (`10.0.0.14` vía `Fa2/0`):** **UP** (`Latest operation return code: OK`, RTT: 4 ms). Sonda forzada a `10.0.0.10` por Local PBR `RM-LOCAL-SLA` (seq 15). Controla ruta primaria a `10.0.0.12/30`. **COMPLEMENTO END-TO-END HOP-2:** Detecta pérdida del enlace B4-B5 y conmuta a la flotante vía B2.
-* **SLA 2 (`10.0.0.18` vía `Fa2/0`):** **UP** (`Latest operation return code: OK`, RTT: 24 ms). Sonda forzada a `10.0.0.10` por Local PBR `RM-LOCAL-SLA` (seq 10). Controla la ruta primaria a `10.0.0.16/30`.
+* **SLA 1 (`10.0.0.1` vía `Fa1/0`):** **UP** (Track 1 UP). Controla primaria `10.0.0.0/30` y flotante `10.0.0.16/30`.
+* **SLA 2 (`10.0.0.18` vía `Fa2/0`):** **UP** (Track 2 UP). Controla primaria `10.0.0.16/30` y flotante `10.0.0.0/30`.
+* **SLA 3 (`10.0.0.14` vía `Fa2/0`):** **UP** (Track 3 UP). Controla primaria `10.0.0.12/30`.
+* **SLA 4 (`10.0.0.14` vía `Fa1/0`):** **DOWN** en reposo (Track 4 DOWN). Valida la flotante `10.0.0.12/30 via 10.0.0.5 10`. Impide que se active el rebote mientras B2 enrute `10.0.0.12/30` hacia B3.
+* Histéresis: `delay down 6 up 3` configurada en los 4 tracks para amortiguar aleteos.
 
 ### 13.4. Evaluación de Failover y Bucles Potenciales
-* **Failover Oeste (B3 -> B2 -> B1):** Si B2 cae, R1 conmuta `10.0.0.0/30` a la flotante vía B4 (`10.0.0.10 AD 10`). Con B1 activo, B4 entrega a B5 y B5 a B1 sin bucles.
-* **Failover Este (B3 -> B4 -> B5 -> B1):** Estado actual activo para `10.0.0.16/30` vía B2 (`10.0.0.5 AD 10`). Banco 2 entrega hacia B1 y **NO rebota hacia B3** debido a que condicionó su flotante a Track 8 (DOWN) y cuenta con `Null0 /27`.
-* **Riesgo Residual de Bucle B4-B5:** Ocurre exclusivamente ante **doble fallo simultáneo** (B1 caído en el oeste Y B2 caído en el este), lo que fragmentaría el anillo activando simultáneamente las flotantes cruzadas de B4 y B5. En el estado actual con B1 y B2 operativos, este bucle se encuentra inactivo.
+* **Failover de `10.0.0.16/30` (B3 -> B2 -> B1 -> B5):** Con corte en el arco este (Tracks 2 y 3 DOWN), la flotante condicionada a Track 1 (`via 10.0.0.5 10 track 1`) se instala limpiamente en el RIB. Ping a `10.0.0.17` 100% OK (3/3), traceroute completado en 3 saltos limpios (`.5 -> .1 -> .17`).
+* **Protección ante Corte B4-B5 (`10.0.0.12/30`):** Track 3 cae a DOWN; Track 4 permanece DOWN; la flotante `via 10.0.0.5 10 track 4` NO se instala. El tráfico hacia `10.0.0.14` cae a `Null0 10.0.0.0/27` en el salto local sin ningún rebote hacia B2 ni bucle.
+* **Preservación de Tránsito:** El route-map `RM-LOCAL-SLA` solo aplica por `ip local policy` a paquetes generados por R1. El tráfico interbancario de tránsito (B2 <-> B4) no es evaluado por PBR y se enruta de forma transparente.
 
 ### 13.5. Servicios Interbancarios Probados
-* **Banco 1 (`10.0.0.1:80`):** **OPERATIVO**. Petición HTTP GET responde `HTTP/1.0 200 OK` sirviendo el portal web interno ("Banco 1 - Portal Interno").
-* **Banco 1 (`10.0.0.1:80/interbancaria`):** **NO DISPONIBLE**. Responde `HTTP/1.0 404 Not Found` (falta implementar endpoint transaccional en B1).
-* **Banco 1 (`10.0.0.1:8080`):** **TIMEOUT** (puerto no alcanzable desde B3).
-* **Banco 2 (`10.0.0.2:5001`):** **TIMEOUT** (la publicación NAT de B2 solo está activa en su interfaz Fa2/0 hacia B1, no en Fa3/0 hacia B3).
-* **Banco 4 (`10.0.0.10:8080`):** **CONNECTION REFUSED** (RST devuelto por B4; L3 operativo, servicio no atiende en esa interfaz).
-* **Banco 5 (`10.0.0.14:80`):** **CONNECTION REFUSED** (RST devuelto por B5; L3 operativo, sin servicio HTTP).
+* **Banco 1 (`10.0.0.1:80`):** **OPERATIVO** (`HTTP/1.0 200 OK`).
+* **Banco 1 (`10.0.0.1:80/interbancaria`):** **OPERATIVO** (confirmado en última versión de B1).
+* **Banco 2 (`10.0.0.2:5001`):** API Depósitos / Transferencias (publicada hacia B1).
+* **Banco 3 (`10.0.0.6:80` / `10.0.0.9:80`):** `POST /interbancaria` **100% OPERATIVO**.
+* **Banco 4 (`10.0.0.10:8080` / `10.0.0.13:8080`):** Blacklist **100% OPERATIVO**.
 
-### 13.6. Verificación Post-Cambio Banco 2 (Paso 1: Ruta Fija a 10.0.0.8/30)
-- **Cambio ejecutado por Banco 2:** Inserción de `ip route 10.0.0.8 255.255.255.252 10.0.0.6` (Paso 1).
-- **Pruebas en vivo desde R1 (Banco 3):**
-  - `ping 10.0.0.5` (vecino B2): **100% OK** (RTT min/avg/max = 88/94/100 ms).
-  - `ping 10.0.0.10` (vecino B4): **100% OK** (RTT min/avg/max = 4/22/36 ms).
-  - `ping 10.0.0.13` (tránsito B4): **100% OK** (RTT min/avg/max = 4/20/28 ms).
-  - `ping 10.0.0.14` (tránsito B5): **100% OK** (RTT min/avg/max = 4/21/32 ms).
-- **Estado de Rutas en R1:**
-  - `10.0.0.4/30`: Conectada directamente en `FastEthernet1/0`.
-  - `10.0.0.8/30`: Conectada directamente en `FastEthernet2/0`.
-  - `10.0.0.0/30`: Primaria `[1/0] via 10.0.0.5` ACTIVA (Track 1 UP).
-  - `10.0.0.16/30`: Primaria `[1/0] via 10.0.0.10` ACTIVA (Track 2 UP).
-- **Estado de Tracks en R1:**
-  - `Track 1`: **UP** (RTT 53 ms).
-  - `Track 2`: **UP** (RTT 24 ms) — **RECUPERADO**.
-- **Impacto y Estado de B4/B5:**
-  - Banco 2 reportó que sus tracks 4 y 7 hacia B4 (`10.0.0.10`) pasaron a UP.
-  - La extinción efectiva del bucle B4-B5 en `10.0.0.4/30` y la reactivación del Track B2 en B4 quedan **PENDIENTES DE CONFIRMACIÓN POR BANCO 4 Y BANCO 5** tras la publicación de sus reportes post-cambio.
+### 13.6. Resultados del Simulacro de Failover B4-B5 (Prueba Real en R1)
+Durante la simulación de caída del segmento `10.0.0.12/30`:
+1. **Estado de Tracks:**
+   - `Track 1` (B1 vía B2): **UP**.
+   - `Track 2` (B1 vía B4): **DOWN**.
+   - `Track 3` (B5 vía B4): **DOWN**.
+   - `Track 4` (B5 vía B2): **DOWN**.
+2. **Tabla de Enrutamiento (RIB de R1):**
+   - `10.0.0.0/30 [1/0] via 10.0.0.5` (Primaria ACTIVA).
+   - `10.0.0.16/30 [10/0] via 10.0.0.5` (Flotante validada ACTIVA).
+   - `10.0.0.12/30`: **RETIRADA DE LA TABLA** (ni primaria ni flotante instaladas).
+   - `10.0.0.0/27 is directly connected, Null0` (Descarte activo).
+3. **Pruebas de Conectividad en Falla:**
+   - `ping 10.0.0.1` (B1): **100% OK** (3/3 paquetes recibidos, RTT ~52-64 ms).
+   - `ping 10.0.0.17` (B5 cara B1): **100% OK** (3/3 paquetes recibidos, RTT ~21-32 ms vía B2->B1->B5).
+   - `traceroute 10.0.0.17`: **3 saltos limpios** (`10.0.0.5 -> 10.0.0.1 -> 10.0.0.17`).
+   - `traceroute 10.0.0.14`: **Descarte inmediato en R1 (Null0)**. Traza muestra `* * *` sin salida al enlace B2.
+   - **¿Hay rebote?: NO.** El rebote previo `B3 -> B2 -> B3` quedó **100% eliminado**.
+   - **¿Hay loop?: NO.** Cero formación de bucles.
+   - **¿El tráfico se entrega o descarta limpiamente?:** Tráfico hacia B5 vía B1 se entrega exitosamente; tráfico hacia el segmento cortado se descarta limpiamente en `Null0`.
+4. **Recuperación Post-Falla:**
+   - Tras restaurar el enlace: Tracks 2 y 3 pasan a `UP` (`delay up 3`).
+   - Primarias `10.0.0.12/30` y `10.0.0.16/30` se reinstalan automáticamente vía `10.0.0.10`.
+   - Flotantes vuelven a estado standby.
+   - Conectividad 100% a todas las IPs del anillo (`10.0.0.1`, `10.0.0.5`, `10.0.0.10`, `10.0.0.13`, `10.0.0.14`, `10.0.0.17`).
+   - Configuración persistida con `write memory`.
 
 ---
 

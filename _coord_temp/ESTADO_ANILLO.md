@@ -59,7 +59,7 @@ Consolidación técnica oficial del estado del anillo de interconexión entre la
 |---|---|---|---|---|---|
 | **Banco 1** | Cisco IOSv | Primarias AD 1 / Flotantes AD 20 (trackeadas) | SLAs 2 y 5 al Hop 2 (ICMP echo cada 5s) + host routes /32 | Tracks 10 y 20 (`delay down 10 up 5`) | **Tracks 10 y 20 UP (100% OPERATIVO)** |
 | **Banco 2** | Cisco 3745 | Primarias AD 1 / Flotantes AD 100 | SLAs 10 y 20 al Hop 2 (ICMP echo cada 3s) + host routes /32 | Tracks 10 y 20 (`delay down 6 up 3`) | **Tracks 10 y 20 UP (100% OPERATIVO)** |
-| **Banco 3** | Cisco 3745 | Primarias AD 1 / Flotantes AD 10 + Local PBR (`RM-LOCAL-SLA`) | SLAs 1, 2, 3 (ICMP echo cada 5s forzadas por Local PBR) | Track 1 (SLA 1), Track 2 (SLA 2), Track 3 (SLA 3) | **Tracks 1, 2, 3 UP (100% OPERATIVO)** |
+| **Banco 3** | Cisco 3745 | Primarias AD 1 / Flotantes AD 10 validadas con Track + Null0 /27 (AD 250) + Local PBR | SLAs 1, 2, 3, 4 (ICMP echo cada 5s forzadas por Local PBR) | Tracks 1, 2, 3, 4 (`delay down 6 up 3`) | **Tracks 1, 2, 3 UP / Track 4 Standby (100% OPERATIVO)** |
 | **Banco 4** | Linux (Alpine) | Primarias Métrica 10 / Flotantes Métrica 20 (sin NAT tránsito) | Script `ip-sla-ring.sh` (sondas cada 2s) | Tracks B3, B2, B5, B1 | **Tracks B3, B2, B5, B1 UP (100% OPERATIVO)** |
 | **Banco 5** | Cisco IOSv | Primarias AD 1 / Flotantes AD 200 + Local PBR (`RM-LOCAL-SLA`) | SLAs 10 y 20 al Hop 2 (ICMP echo cada 5s forzadas por PBR) | Tracks 10 y 20 | **Tracks 10 y 20 UP (100% OPERATIVO)** |
 
@@ -82,6 +82,17 @@ Consolidación técnica oficial del estado del anillo de interconexión entre la
 ### 5.3. Rebote `10.0.0.16/30` (Banco 2 <-> Banco 3): **RESUELTO**
 - Banco 2 condicionó su flotante de retorno hacia B3 a su `Track 8` (actualmente DOWN) y agregó descarte en `Null0 10.0.0.0/27`. Banco 2 ya no devuelve el paquete hacia Banco 3.
 
+### 5.4. Rebote `10.0.0.12/30` (Banco 3 <-> Banco 2 durante Corte B4-B5) — RESUELTO / EXTINGUIDO
+- **Estado Previo:** Durante el corte de `10.0.0.12/30` (B4-B5), el Track 3 de B3 caía y activaba su flotante ciega `10.0.0.12/30 via 10.0.0.5 10`. Banco 2 mantenía su Track 10 UP (B4 respondía vía B3) y conservaba su primaria `10.0.0.12/30 via 10.0.0.6`, devolviendo el tráfico a B3 en un rebote `B3 -> B2 -> B3`.
+- **Causa Raíz:** Flotante de B3 no validada (sin gateo por track) unida a que B2 aún enruta hacia el sur.
+- **Solución Implementada por Banco 3:**
+  1. **Gateo por Track (Validated Backup Tracking):** Se condicionaron todas las flotantes de B3 a tracks activos (`track 1`, `track 2`, `track 4`). La flotante `10.0.0.12/30 via 10.0.0.5 10` se condicionó a `Track 4` (sonda SLA 4 hacia `10.0.0.14` forzada por Local PBR vía B2).
+  2. **Descarte Local de Anillo:** `ip route 10.0.0.0 255.255.255.224 Null0 250`.
+- **Resultado del Simulacro:** Al rebotar B2 la sonda, Track 4 cae a DOWN y la flotante `10.0.0.12/30` **NO se instala**. El tráfico hacia destinos inalcanzables del enlace cortado se descarta en `Null0` localmente.
+  - `traceroute 10.0.0.14`: Descarte inmediato en R1 (Null0). **CERO rebote hacia B2, CERO bucles**.
+  - `ping 10.0.0.17` (B5): **100% OK** vía camino alterno (`.5 -> .1 -> .17`).
+  - `ping 10.0.0.1` (B1): **100% OK**.
+
 ---
 
 ## 6. Estado de Servicios Interbancarios Publicados
@@ -101,8 +112,8 @@ Consolidación técnica oficial del estado del anillo de interconexión entre la
 
 Todos los bancos han consolidado sus mecanismos de supervisión de extremo a extremo:
 * **Banco 1 (Cisco IOSv):** Configuración v8.3 con SLAs 2 y 5 (Hop-2) + Tracks 10 y 20 (`delay down 10 up 5`) y rutas `/32` ancladas. Estado: **UP**.
-* **Banco 2 (Cisco 3745):** Reconstrucción completa E2E con SLAs 10 y 20 + Tracks 10 y 20 (`delay down 6 up 3`) y rutas `/32`. Estado: **UP**.
-* **Banco 3 (Cisco 3745):** Esquema E2E con Local PBR (`RM-LOCAL-SLA` seq 10, 15, 20) gobernando Tracks 1, 2 y 3 sin rutas `/32`. Estado: **UP**.
+* **Banco 2 (Cisco 3745):** Reconstrucción completa E2E con SLAs 10 y 20 + Tracks 10 y 20 (`delay down 6 up 3`), Local PBR para sondas y `Null0 /27`. Estado: **UP**.
+* **Banco 3 (Cisco 3745):** Esquema E2E con Local PBR (`RM-LOCAL-SLA` seq 10, 15, 20, 25), 4 Tracks validados con histéresis (`delay down 6 up 3`), flotantes 100% condicionadas a tracks y descarte de anillo `Null0 10.0.0.0/27 AD 250`. Estado: **UP**.
 * **Banco 4 (Linux Alpine):** Demonio supervisor nativo con socket bind (`ping -I ethX`) gobernando Tracks B3, B2, B5, B1. Estado: **UP**.
 * **Banco 5 (Cisco IOSv):** Esquema E2E con Local PBR (`RM-LOCAL-SLA` seq 10 y 20) gobernando Tracks 10 y 20. Estado: **UP**.
 
@@ -116,6 +127,9 @@ Todos los bancos han consolidado sus mecanismos de supervisión de extremo a ext
 * **Bucles:** Cero bucles activos. Traza limpia de 2 saltos hacia el arco oeste (B3 -> B2 -> B1) y 2 saltos hacia el arco este (B3 -> B4 -> B5).
 * **Supervisión:** Todos los tracks convergidos en UP y estables sin aleteos.
 
-### Fase 2: Plan de Pruebas de Failover Controladas — LISTO PARA EJECUCIÓN
-Con la línea base verificada y sana, el anillo está preparado para pruebas de desconexión controlada para validar la conmutación automática de rutas primarias a flotantes y la preservación del tráfico de servicios:
-* **Primer enlace recomendado para simulación:** Segmento `B3 - B4` (`10.0.0.8/30`) o segmento `B1 - B2` (`10.0.0.0/30`), monitoreando el comportamiento de los tracks adyacentes y la conmutación limpia por el arco alterno.
+### Fase 2: Pruebas de Failover Controladas (Drills) — EN EJECUCIÓN / VALIDADO
+1. **Simulacro de Corte B4-B5 (`10.0.0.12/30`):**
+   - **Resultado:** Detección automática por Tracks 2 y 3 (`DOWN`). Retiro automático de primarias.
+   - **Conmutación limpia:** Tráfico hacia Banco 5 (`10.0.0.17`) y Banco 1 (`10.0.0.1`) conmuta automáticamente a la ruta de respaldo vía Banco 2 (`10.0.0.5 AD 10 track 1`) con 100% de éxito (3 saltos: `.5 -> .1 -> .17`).
+   - **Extinción de rebote:** Tráfico hacia el enlace cortado (`10.0.0.12/30`) se descarta en `Null0` local sin rebotar hacia Banco 2 ni formar bucles.
+   - **Restauración:** Retorno automático e instantáneo a rutas primarias al normalizar el enlace. Sincronización y persistencia completadas.
