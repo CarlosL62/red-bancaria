@@ -82,26 +82,24 @@ Banco 3 se interconecta con el anillo mediante dos interfaces de tránsito punto
 
 #### Rutas Interbancarias Primarias, Flotantes Validadas y Descarte
 ```text
-! Primarias (AD 1, condicionadas a Object Tracking End-to-End)
+! Primarias (AD 1, condicionadas a Object Tracking End-to-End Hop-2)
 ip route 10.0.0.0 255.255.255.252 10.0.0.5 track 1    ! Primaria B1-B2 vía B2 (Track 1 UP: B1 vía B2)
 ip route 10.0.0.12 255.255.255.252 10.0.0.10 track 3  ! Primaria B4-B5 vía B4 (Track 3 UP: B5 vía B4)
-ip route 10.0.0.16 255.255.255.252 10.0.0.10 track 2  ! Primaria B5-B1 vía B4 (Track 2 UP: B1 vía B4)
+ip route 10.0.0.16 255.255.255.252 10.0.0.10 track 3  ! Primaria B5-B1 vía B4 (Track 3 UP: B5 vía B4)
 
-! Flotantes Validadas (AD 10, estrictamente condicionadas a Track del camino alterno)
-ip route 10.0.0.0 255.255.255.252 10.0.0.10 10 track 2 ! Respaldo B1-B2 vía B4 (valida B3->B4->B5->B1)
-ip route 10.0.0.16 255.255.255.252 10.0.0.5 10 track 1  ! Respaldo B5-B1 vía B2 (valida B3->B2->B1)
-ip route 10.0.0.12 255.255.255.252 10.0.0.5 10 track 4  ! Respaldo B4-B5 vía B2 (valida B3->B2->B1->B5)
+! Flotantes Validadas (AD 10, condicionadas a Track del camino alterno)
+ip route 10.0.0.16 255.255.255.252 10.0.0.5 10 track 1  ! Respaldo B5-B1 vía B2 (Track 1 UP: B1 vía B2)
+ip route 10.0.0.8 255.255.255.252 10.0.0.5 10 track 1   ! Respaldo B4 vía B2 (wrap directo si cae enlace este)
+ip route 10.0.0.0 255.255.255.252 10.0.0.10 10 track 3  ! Respaldo B1-B2 vía B4 (Track 3 UP: arco este)
+ip route 10.0.0.4 255.255.255.252 10.0.0.10 10 track 3  ! Respaldo B2 vía B4 (wrap directo si cae enlace oeste)
 
-! Respaldo de enlaces directos (wrap routes si cae la interfaz física vecina)
-ip route 10.0.0.4 255.255.255.252 10.0.0.10 10 track 2 ! Respaldo B2 vía B4 (condicionado a Track 2)
-ip route 10.0.0.8 255.255.255.252 10.0.0.5 10 track 1  ! Respaldo B4 vía B2 (condicionado a Track 1)
-
-! Descarte de Anillo (Protección contra Loops, Rebotes y Fugas a Default Route)
+! Descarte de Anillo (Protección contra Bucles, Rebotes y Fugas a Default Route)
 ip route 10.0.0.0 255.255.255.224 Null0 250            ! Descarta el bloque 10.0.0.0/27 si no hay /30 activa
 ```
+> **Decisión de Arquitectura (Eliminación de Flotante `10.0.0.12/30` hacia B2):** Durante un corte físico entre B4 y B5, el segmento `10.0.0.12/30` deja de existir. Mantener una flotante hacia Banco 2 obligaba a B2 (que no tiene ruta hacia B5 por el este) a devolver el tráfico a B3, creando un rebote `B3 -> B2 -> B3`. Al eliminar la flotante, los paquetes dirigidos a la interfaz caída `10.0.0.14` caen directamente en `Null0 10.0.0.0/27` en el salto local sin ningún rebote. Banco 5 sigue siendo 100% alcanzable a través de su interfaz oeste `10.0.0.17` mediante la flotante `10.0.0.16/30 via 10.0.0.5 10 track 1`.
 
 ### IP SLA y Object Tracking (Arquitectura Validada con Histéresis)
-Banco 3 implementa la supervisión completa de extremo a extremo en ambas direcciones del anillo, incluyendo validación de caminos primarios y de respaldo:
+Banco 3 implementa la supervisión de 2 saltos (Hop-2) en ambos arcos del anillo:
 * **Track 1 (B3 -> B2 -> B1):** Monitorea la alcanzabilidad de Banco 1 (`10.0.0.1`, Salto 2) por el camino oeste (Fa1/0 hacia B2). Controla la primaria a `10.0.0.0/30` y respalda `10.0.0.16/30` y `10.0.0.8/30`.
   ```text
   ip sla monitor 1
@@ -113,18 +111,7 @@ Banco 3 implementa la supervisión completa de extremo a extremo en ambas direcc
   track 1 rtr 1 reachability
    delay down 6 up 3
   ```
-* **Track 2 (B3 -> B4 -> B5 -> B1):** Monitorea la alcanzabilidad de Banco 1 (`10.0.0.18`, Salto 3) por el camino este (Fa2/0 hacia B4). Controla la primaria a `10.0.0.16/30` y respalda `10.0.0.0/30` y `10.0.0.4/30`.
-  ```text
-  ip sla monitor 2
-   type echo protocol ipIcmpEcho 10.0.0.18 source-interface FastEthernet2/0
-   timeout 2000
-   threshold 2000
-   frequency 5
-  ip sla monitor schedule 2 life forever start-time now
-  track 2 rtr 2 reachability
-   delay down 6 up 3
-  ```
-* **Track 3 (B3 -> B4 -> B5):** Monitorea la alcanzabilidad de Banco 5 (`10.0.0.14`, Salto 2) por el camino este (Fa2/0 hacia B4). Controla la primaria a `10.0.0.12/30`.
+* **Track 3 (B3 -> B4 -> B5):** Monitorea la alcanzabilidad de Banco 5 (`10.0.0.14`, Salto 2) por el camino este (Fa2/0 hacia B4). Gobierna las primarias del arco este: `10.0.0.12/30` y `10.0.0.16/30`. Respalda `10.0.0.0/30` y `10.0.0.4/30`.
   ```text
   ip sla monitor 3
    type echo protocol ipIcmpEcho 10.0.0.14 source-interface FastEthernet2/0
@@ -135,46 +122,26 @@ Banco 3 implementa la supervisión completa de extremo a extremo en ambas direcc
   track 3 rtr 3 reachability
    delay down 6 up 3
   ```
-* **Track 4 (B3 -> B2 -> B1 -> B5):** Monitorea la entregabilidad hacia Banco 5 (`10.0.0.14`, Salto 3) por el camino oeste (Fa1/0 hacia B2). Valida la flotante hacia `10.0.0.12/30 via 10.0.0.5`. Si Banco 2 no entrega o devuelve el tráfico, el track permanece `DOWN`, impidiendo que la flotante se instale y evitando cualquier rebote circular.
-  ```text
-  ip sla monitor 4
-   type echo protocol ipIcmpEcho 10.0.0.14 source-interface FastEthernet1/0
-   timeout 2000
-   threshold 2000
-   frequency 5
-  ip sla monitor schedule 4 life forever start-time now
-  track 4 rtr 4 reachability
-   delay down 6 up 3
-  ```
+> **Retiro de Sondas Innecesarias:** Se retiró SLA 2 / Track 2 (sonda Hop-3 hacia `10.0.0.18`), cuyo aleteo (900+ transiciones) se originaba en la asimetría de rutas flotantes de retorno en B4. Se retiró SLA 4 / Track 4 al eliminarse la flotante de `10.0.0.12/30`.
 
 ### Local PBR (Policy Based Routing Local)
-Para evitar dependencias circulares y forzar cada sonda estrictamente por la interfaz correspondiente sin recurrir a rutas host `/32`, R1 aplica Local PBR:
+Para evitar dependencias circulares y anclar cada sonda estrictamente a su interfaz de salida sin usar rutas `/32`:
 ```text
-ip access-list extended ACL-SLA-B5-B1
- permit icmp host 10.0.0.9 host 10.0.0.18
 ip access-list extended ACL-SLA-B4-B5
  permit icmp host 10.0.0.9 host 10.0.0.14
 ip access-list extended ACL-SLA-B2-B1
  permit icmp host 10.0.0.6 host 10.0.0.1
-ip access-list extended ACL-SLA-B2-B5
- permit icmp host 10.0.0.6 host 10.0.0.14
 
-route-map RM-LOCAL-SLA permit 10
- match ip address ACL-SLA-B5-B1
- set ip next-hop 10.0.0.10
 route-map RM-LOCAL-SLA permit 15
  match ip address ACL-SLA-B4-B5
  set ip next-hop 10.0.0.10
 route-map RM-LOCAL-SLA permit 20
  match ip address ACL-SLA-B2-B1
  set ip next-hop 10.0.0.5
-route-map RM-LOCAL-SLA permit 25
- match ip address ACL-SLA-B2-B5
- set ip next-hop 10.0.0.5
 
 ip local policy route-map RM-LOCAL-SLA
 ```
-* **Ventaja y Diferenciador Técnico:** A diferencia del uso de rutas `/32` fijas (que secuestran el tráfico de producción por LPM), Local PBR actúa **exclusivamente sobre los paquetes ICMP generados localmente por R1**, dejando el tráfico real de producción completamente gobernado por la FIB (primarias, flotantes validadas y Null0). Los paquetes de tránsito (B2 <-> B4) no son evaluados por la política local y se enrutan de forma pura a nivel de Capa 3.
+* **Ventaja y Diferenciador Técnico:** A diferencia de rutas host `/32` fijas (que secuestran el tráfico real por longest prefix match), Local PBR actúa **exclusivamente sobre los paquetes ICMP generados localmente por R1**. El tráfico de producción y el tráfico de tránsito entre B2 y B4 siguen las rutas de la FIB sin verse afectados.
 
 ---
 
@@ -352,49 +319,51 @@ Auditoría integral ejecutada desde los nodos de Banco 3 (R1 y WEB01) sobre la t
 * **Red `10.0.0.16/30` (B5-B1):** **ALCANZABLE**. Primaria `10.0.0.16/30 via 10.0.0.10` (AD 1, Track 2 UP).
 
 ### 13.3. IP SLA, Object Tracking y Local PBR
-* **SLA 1 (`10.0.0.1` vía `Fa1/0`):** **UP** (Track 1 UP). Controla primaria `10.0.0.0/30` y flotante `10.0.0.16/30`.
-* **SLA 2 (`10.0.0.18` vía `Fa2/0`):** **UP** (Track 2 UP). Controla primaria `10.0.0.16/30` y flotante `10.0.0.0/30`.
-* **SLA 3 (`10.0.0.14` vía `Fa2/0`):** **UP** (Track 3 UP). Controla primaria `10.0.0.12/30`.
-* **SLA 4 (`10.0.0.14` vía `Fa1/0`):** **DOWN** en reposo (Track 4 DOWN). Valida la flotante `10.0.0.12/30 via 10.0.0.5 10`. Impide que se active el rebote mientras B2 enrute `10.0.0.12/30` hacia B3.
-* Histéresis: `delay down 6 up 3` configurada en los 4 tracks para amortiguar aleteos.
+* **SLA 1 (`10.0.0.1` vía `Fa1/0`):** **UP** (Track 1 UP, RTT ~84-96 ms). Controla primaria `10.0.0.0/30` y flotante `10.0.0.16/30`.
+* **SLA 3 (`10.0.0.14` vía `Fa2/0`):** **UP** (Track 3 UP, RTT ~1-8 ms). Controla primarias `10.0.0.12/30` y `10.0.0.16/30`, y flotantes `10.0.0.0/30` y `10.0.0.4/30`.
+* **SLA 2 y SLA 4:** **ELIMINADOS**. SLA 2 (Hop-3 hacia `10.0.0.18`) retirado para extinguir el flapping continuo (>900 aleteos) causado por el retorno asimétrico de B4. SLA 4 retirado al removerse la flotante innecesaria hacia `10.0.0.12/30`.
+* **Histéresis:** `delay down 6 up 3` configurada en ambos tracks activos (1 y 3). Transiciones 100% limpias y libres de aleteo.
 
 ### 13.4. Evaluación de Failover y Bucles Potenciales
-* **Failover de `10.0.0.16/30` (B3 -> B2 -> B1 -> B5):** Con corte en el arco este (Tracks 2 y 3 DOWN), la flotante condicionada a Track 1 (`via 10.0.0.5 10 track 1`) se instala limpiamente en el RIB. Ping a `10.0.0.17` 100% OK (3/3), traceroute completado en 3 saltos limpios (`.5 -> .1 -> .17`).
-* **Protección ante Corte B4-B5 (`10.0.0.12/30`):** Track 3 cae a DOWN; Track 4 permanece DOWN; la flotante `via 10.0.0.5 10 track 4` NO se instala. El tráfico hacia `10.0.0.14` cae a `Null0 10.0.0.0/27` en el salto local sin ningún rebote hacia B2 ni bucle.
-* **Preservación de Tránsito:** El route-map `RM-LOCAL-SLA` solo aplica por `ip local policy` a paquetes generados por R1. El tráfico interbancario de tránsito (B2 <-> B4) no es evaluado por PBR y se enruta de forma transparente.
+* **Failover de `10.0.0.16/30` (B3 -> B2 -> B1 -> B5):** Con corte en el arco este (Track 3 DOWN), la flotante hacia Banco 2 (`via 10.0.0.5 10 track 1`) asume de inmediato en la RIB. Ping a `10.0.0.17` 100% OK (3/3), traceroute completado en 3 saltos limpios (`10.0.0.5 -> 10.0.0.1 -> 10.0.0.17`).
+* **Protección ante Corte B4-B5 (`10.0.0.12/30`):** Track 3 cae a DOWN; al no existir ruta flotante hacia B2 para esta red, el tráfico hacia `10.0.0.14` cae de forma local e inmediata en `Null0 10.0.0.0/27 AD 250`. Se extingue por completo el rebote `B3 -> B2 -> B3`.
+* **Preservación de Tránsito:** El route-map `RM-LOCAL-SLA` solo aplica por `ip local policy` a paquetes generados localmente por R1. El tráfico interbancario de tránsito (B2 <-> B4) no es evaluado por PBR y se enruta de forma transparente a nivel L3.
 
 ### 13.5. Servicios Interbancarios Probados
-* **Banco 1 (`10.0.0.1:80`):** **OPERATIVO** (`HTTP/1.0 200 OK`).
-* **Banco 1 (`10.0.0.1:80/interbancaria`):** **OPERATIVO** (confirmado en última versión de B1).
+* **Banco 1 (`10.0.0.1:80`):** **OPERATIVO** (`HTTP/1.0 200 OK` en `/`).
+* **Banco 1 (`10.0.0.1:80/interbancaria`):** **OPERATIVO**. Petición POST con payload de prueba inválido responde `HTTP/1.0 400 Bad Request` (`JSON_INVALIDO`), confirmando servicio activo sin generar transacciones reales.
+* **Banco 1 (`10.0.0.18:80`):** **NO OPERATIVO / TIMEOUT**. B1 documenta que el NAT estático sobre Gi0/2 no persistió en Cisco IOSv. El servicio solo se expone en `10.0.0.1`.
+* **Banco 3 Inbound (`POST /interbancaria`):** **100% OPERATIVO**. Nginx en WEB01 escucha en 8080 y 8081 y reenvía a Flask 5001. Ambos puertos responden con HTTP 400 (`JSON invalido`) ante payloads de prueba. FW1 aplica filtrado estricto:
+  - Vía este (`10.0.0.9:80` -> NAT `172.16.2.2:8081`): Acepta únicamente `saddr 10.0.0.14`.
+  - Vía oeste (`10.0.0.6:80` -> NAT `172.16.2.2:8080`): Acepta únicamente `saddr 10.0.0.17`.
+  - Durante corte B4-B5, Banco 5 debe enviar a `10.0.0.6:80` con origen `10.0.0.17` para ser admitido por el firewall.
+* **Banco 3 Outbound hacia B1:** `/opt/interbanco.py` tiene configurado fallback secuencial (`BANCO1_ENDPOINTS`: primaria `10.0.0.1`, respaldo `10.0.0.18`). Durante un corte B4-B5, la ruta hacia `10.0.0.1` (arco oeste) no se ve afectada y B3 consume a B1 sin degradación.
 * **Banco 2 (`10.0.0.2:5001`):** API Depósitos / Transferencias (publicada hacia B1).
-* **Banco 3 (`10.0.0.6:80` / `10.0.0.9:80`):** `POST /interbancaria` **100% OPERATIVO**.
 * **Banco 4 (`10.0.0.10:8080` / `10.0.0.13:8080`):** Blacklist **100% OPERATIVO**.
 
 ### 13.6. Resultados del Simulacro de Failover B4-B5 (Prueba Real en R1)
-Durante la simulación de caída del segmento `10.0.0.12/30`:
-1. **Estado de Tracks:**
-   - `Track 1` (B1 vía B2): **UP**.
-   - `Track 2` (B1 vía B4): **DOWN**.
-   - `Track 3` (B5 vía B4): **DOWN**.
-   - `Track 4` (B5 vía B2): **DOWN**.
+Ejecución del simulacro desactivando temporalmente SLA 3 en R1:
+1. **Estado de Tracks durante el Corte:**
+   - `Track 1` (B1 vía B2): **UP** (sin alteración).
+   - `Track 3` (B5 vía B4): **DOWN** tras cumplir temporizador `delay down 6`. **Cero aleteos (0 flaps)**.
 2. **Tabla de Enrutamiento (RIB de R1):**
-   - `10.0.0.0/30 [1/0] via 10.0.0.5` (Primaria ACTIVA).
-   - `10.0.0.16/30 [10/0] via 10.0.0.5` (Flotante validada ACTIVA).
+   - `10.0.0.0/30 [1/0] via 10.0.0.5` (Primaria oeste ACTIVA).
+   - `10.0.0.16/30 [10/0] via 10.0.0.5` (Flotante hacia B5-B1 ACTIVA).
    - `10.0.0.12/30`: **RETIRADA DE LA TABLA** (ni primaria ni flotante instaladas).
-   - `10.0.0.0/27 is directly connected, Null0` (Descarte activo).
+   - `10.0.0.0/27 is directly connected, Null0` (Descarte activo para destinos no asignados).
 3. **Pruebas de Conectividad en Falla:**
-   - `ping 10.0.0.1` (B1): **100% OK** (3/3 paquetes recibidos, RTT ~52-64 ms).
-   - `ping 10.0.0.17` (B5 cara B1): **100% OK** (3/3 paquetes recibidos, RTT ~21-32 ms vía B2->B1->B5).
+   - `ping 10.0.0.1` (B1): **100% OK** (3/3 paquetes recibidos, RTT ~36-64 ms).
+   - `ping 10.0.0.17` (B5 cara B1): **100% OK** (3/3 paquetes recibidos, RTT ~4-28 ms vía B2->B1->B5).
    - `traceroute 10.0.0.17`: **3 saltos limpios** (`10.0.0.5 -> 10.0.0.1 -> 10.0.0.17`).
-   - `traceroute 10.0.0.14`: **Descarte inmediato en R1 (Null0)**. Traza muestra `* * *` sin salida al enlace B2.
+   - `ping 10.0.0.12/30`: Descarte inmediato en R1 (Null0).
    - **¿Hay rebote?: NO.** El rebote previo `B3 -> B2 -> B3` quedó **100% eliminado**.
-   - **¿Hay loop?: NO.** Cero formación de bucles.
-   - **¿El tráfico se entrega o descarta limpiamente?:** Tráfico hacia B5 vía B1 se entrega exitosamente; tráfico hacia el segmento cortado se descarta limpiamente en `Null0`.
+   - **¿Hay bucle?: NO.** Cero formación de bucles.
+   - **¿El tráfico se entrega o descarta limpiamente?:** Tráfico hacia B5 vía B1 se entrega con 100% de éxito; tráfico hacia el segmento cortado se descarta limpiamente en `Null0`.
 4. **Recuperación Post-Falla:**
-   - Tras restaurar el enlace: Tracks 2 y 3 pasan a `UP` (`delay up 3`).
+   - Tras reactivar SLA 3: Track 3 pasa a `UP` a los 3 segundos (`delay up 3`).
    - Primarias `10.0.0.12/30` y `10.0.0.16/30` se reinstalan automáticamente vía `10.0.0.10`.
    - Flotantes vuelven a estado standby.
-   - Conectividad 100% a todas las IPs del anillo (`10.0.0.1`, `10.0.0.5`, `10.0.0.10`, `10.0.0.13`, `10.0.0.14`, `10.0.0.17`).
+   - Conectividad 100% confirmada (`ping 10.0.0.14` 3/3 OK, `ping 10.0.0.1` 3/3 OK).
    - Configuración persistida con `write memory`.
 
 ---
