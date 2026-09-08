@@ -170,7 +170,43 @@ Banco 4 implementa un demonio supervisor continuo en Linux (`/etc/network/ip-sla
 
 ---
 
-## 13. Notas para Otros Bancos
+## 13. Evaluación de la Petición de Banco 2 (2026-09-08) y Pruebas de Failover
 
-* **A Banco 2 y Banco 3:** Confirmado el éxito del Paso 1. Los tracks y rutas primarias de Banco 4 están 100% convergidos y alineados por el camino este (`eth3`).
-* **A Banco 5:** Confirmado que Banco 4 ya no envía tráfico hacia `10.0.0.4/30` por `eth4`. El bucle cerrado quedó desactivado.
+### Evaluación Técnica de la Petición de Banco 2
+* **Acción de Banco 2:** Banco 2 aplicó satisfactoriamente en su router R-WAN la configuración solicitada:
+  ```cisco
+  no ip route 10.0.0.12 255.255.255.252 10.0.0.1 track 5
+  ip route 10.0.0.12 255.255.255.252 10.0.0.1 track 1
+  write memory
+  ```
+  Con esto, la ruta primaria de retorno de B2 hacia la red de Banco 4 (`10.0.0.12/30`) quedó desvinculada de la inestabilidad ICMP de B5 (`track 5`) y gobernada exclusivamente por su enlace directo con B1 (`track 1`).
+* **Requerimientos de configuración para Banco 4:** **NINGUNO**. Banco 2 no solicitó cambios en la configuración de Banco 4. Nuestra arquitectura y enrutamiento se mantienen íntegros.
+* **Solicitud de prueba de Banco 2:** Re-probar conectividad y traceroute hacia Banco 2 con el retorno este operativo.
+
+### Resultados de la Verificación en Vivo (Simulacro de Corte B4-B3)
+Durante la prueba de desconexión del cable entre Banco 4 y Banco 3:
+1. **Conmutación Automática (Failover):**
+   * Sonda B3 (`10.0.0.9`) y B2 (`10.0.0.5`) pasan a `[DOWN]` en `eth3`.
+   * El demonio IP SLA conmuta automáticamente las rutas hacia B2 (`10.0.0.0/30` y `10.0.0.4/30`) por la interfaz `eth4` hacia Banco 5 (métrica 20).
+2. **Alcance a Banco 2 (`10.0.0.2` - Interfaz activa y servicio bancario):**
+   * **Ping:** **100% OK** (0% pérdida, RTT avg ~25 ms).
+   * **Traceroute:** **3 saltos limpios**:
+     ```text
+     1  10.0.0.14 (Banco 5)   9.066 ms
+     2  10.0.0.18 (Banco 1)  19.997 ms
+     3  10.0.0.2  (Banco 2)  24.477 ms
+     ```
+   * **Servicio Interbancario:** Puerto `5001` de Banco 2 validado **OPEN** en `10.0.0.2:5001`. El consumo de la API de depósitos de Banco 2 es 100% exitoso durante el corte por el camino alterno.
+3. **Observación sobre `10.0.0.5` (`10.0.0.4/30`):**
+   * El destino `10.0.0.5` corresponde a la IP de enlace entre B2 y B3. Al conmutar B4 su ruta hacia B5 (`10.0.0.14`), Banco 5 aún mantiene en su tabla primaria `10.0.0.4/30 via 10.0.0.13` (hacia B4) mientras su propio track no caiga. Por lo tanto, el acceso específico a esa IP de interconexión remota B2-B3 queda a la espera de que B5 ajuste su tracking o se restaure el enlace directo B4-B3. Sin embargo, para la operativa bancaria y transaccional con Banco 2 (`10.0.0.2`), la comunicación es **total y transparente**.
+
+---
+
+## 14. Notas para Otros Bancos
+
+* **A Banco 2:**
+  * Confirmamos la recepción y evaluación de su cambio. El ajuste a `track 1` en `10.0.0.12/30` resolvió el retorno: Banco 4 alcanza exitosamente a Banco 2 en `10.0.0.2` en 3 saltos limpios por el oeste (`.14 → .18 → .2`), con 0% de pérdida de paquetes y el puerto de depósitos `5001` abierto.
+  * Banco 4 no requiere modificaciones en su configuración de red; nuestras rutas y scripts SLA respondieron según el diseño de alta disponibilidad.
+* **A Banco 1:** Apoyamos la recomendación de Banco 2 para retirar la flotante `10.0.0.12/30 via 10.0.0.2 20 track 1` y blindar el segmento este contra rebotes.
+* **A Banco 5:** Recordar coordinar el seguimiento al ICMP en `10.0.0.17`/`.14` para que los demás bancos no experimenten falsos positivos en sus SLAs.
+* **A Banco 3:** Favor registrar en `ESTADO_ANILLO.md` que el retorno de Banco 4 por Banco 2 / Banco 1 está validado y funcional.
