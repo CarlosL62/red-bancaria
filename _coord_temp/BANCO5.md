@@ -1,5 +1,58 @@
 # Banco 5 (Banco con Segmentación Interna Avanzada)
 
+## Implementación de Sondeo End-to-End (Salto 2) — 2026-09-07 23:07 UTC-6
+
+Adoptamos la metodología de `docs/GUIA_SONDEO_END_TO_END.md` (Banco4), con una diferencia de implementación importante que detallamos abajo.
+
+**Objetivos de sonda (según tabla maestra de la guía, confirmados por nuestra propia topología):**
+* Sentido sur (vía Banco4): salto 1 = `10.0.0.13`, salto 2 = `10.0.0.9` (Banco3).
+* Sentido norte (vía Banco1): salto 1 = `10.0.0.18`, salto 2 = `10.0.0.2` (Banco2).
+
+**Diferencia respecto a la plantilla original de Banco4 — motivo técnico:** la guía ancla cada sonda con una ruta `/32` fija sin track (`ip route 10.0.0.9 255.255.255.255 10.0.0.13`). En nuestro caso específico, `10.0.0.9` **es la misma IP que usamos para las transferencias interbancarias reales con Banco3** — una ruta `/32` (que siempre gana por longest-prefix-match) habría anclado también ese tráfico real, rompiendo su failover. En vez de eso usamos **PBR local** (`ip local policy route-map`), la misma técnica que ya usa Banco3 en su propio router: solo redirige paquetes que el router genera él mismo (las sondas), sin tocar el tráfico de tránsito/aplicación real.
+
+**Config aplicada y verificada:**
+```
+ip access-list extended ACL-SLA-B4-B3
+ permit icmp host 10.0.0.14 host 10.0.0.9
+ip access-list extended ACL-SLA-B1-B2
+ permit icmp host 10.0.0.17 host 10.0.0.2
+
+route-map RM-LOCAL-SLA permit 10
+ match ip address ACL-SLA-B4-B3
+ set ip next-hop 10.0.0.13
+route-map RM-LOCAL-SLA permit 20
+ match ip address ACL-SLA-B1-B2
+ set ip next-hop 10.0.0.18
+ip local policy route-map RM-LOCAL-SLA
+
+ip sla 10
+ icmp-echo 10.0.0.9 source-interface Ethernet1/0
+ frequency 5
+ip sla schedule 10 life forever start-time now
+ip sla 20
+ icmp-echo 10.0.0.2 source-interface Ethernet1/1
+ frequency 5
+ip sla schedule 20 life forever start-time now
+
+track 10 ip sla 10 reachability
+ delay down 10 up 5
+track 20 ip sla 20 reachability
+ delay down 10 up 5
+
+ip route 10.0.0.4 255.255.255.252 10.0.0.13 track 10
+ip route 10.0.0.8 255.255.255.252 10.0.0.13 track 10
+ip route 10.0.0.0 255.255.255.252 10.0.0.18 track 20
+```
+Reemplaza los `ip sla 1/2/3` / `track 1/2/3` anteriores (monitoreo de solo salto 1). Consolidado de 3 a 2 tracks: `track 10` cubre `10.0.0.4/30` y `10.0.0.8/30` a la vez, ya que ambas dependen de que Banco4 pueda llegar más allá de sí mismo. Temporización conservadora mantenida (`frequency 5`, `delay down 10 up 5`) en vez de la más agresiva de la guía (`frequency 3`, `timeout 1000ms`) — ya vimos picos de RTT >1000ms en este anillo.
+
+**Verificado en vivo tras aplicar:**
+* `show track brief`: track 10 y track 20 en **Up**.
+* `show route-map RM-LOCAL-SLA`: hits reales en ambas entradas (58 y 92 paquetes) — confirma que el PBR sí está redirigiendo las sondas.
+* `show ip route 10.0.0.9` y `show ip route 10.0.0.4 255.255.255.252`: tabla de rutas normal intacta (`via 10.0.0.13`, sin ninguna influencia del PBR) — confirma que el tráfico real de transferencias sigue gobernado por el track y su respaldo, no por la ruta anclada de la sonda.
+* Pendiente: prueba de desconexión física real para confirmar que `track 10` detecta el escenario "Banco4 vivo pero no puede llegar a Banco3" (el `!H` que documentamos varias veces hoy) — no se pudo provocar ese estado exacto en el momento de la implementación.
+
+---
+
 ## Verificación POST-CAMBIO (2026-09-07 18:53 UTC-6) — Loop `10.0.0.4/30` EXTINGUIDO
 
 Verificación solicitada tras el cambio de Banco 2 (ruta fija `10.0.0.8/30 via 10.0.0.6`) y la recuperación de ambos tracks de Banco 3. Solo lectura, sin cambios de configuración.
