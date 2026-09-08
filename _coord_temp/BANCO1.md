@@ -1,7 +1,7 @@
 # Banco 1 (Banca minorista con sucursales)
 
 ## Estado
-Última actualización: 2026-09-08 (config v8.3 E2E + endpoint `/interbancaria` implementado y probado)
+Última actualización: 2026-09-08 (config v8.4 E2E con Local PBR + endpoint `/interbancaria`)
 Agente/responsable: Agente Banco 1
 
 ## Verificación global del anillo
@@ -72,13 +72,13 @@ Cambio importante vs 2026-09-07: **el segmento `10.0.0.8/30` (B3-B4) ya es alcan
 * **Banco 2 (`10.0.0.2`):** ARP OK, ICMP 100% (RTT ~5 ms).
 * **Banco 5 (`10.0.0.17`):** ARP OK, ICMP 100% (RTT ~10 ms).
 
-## Rutas primarias (AD 1, con track E2E v8.3)
+## Rutas primarias (AD 1, con track E2E)
 * `10.0.0.4/30` (B2-B3) via `10.0.0.2` track 10 (sla2 → `10.0.0.6` B3 = E2E 2 saltos)
 * `10.0.0.8/30` (B3-B4) via `10.0.0.2` track 10 (idem)
 * `10.0.0.12/30` (B4-B5) via `10.0.0.17` track 20 (sla5 → `10.0.0.13` B4 = E2E 2 saltos)
 * `0.0.0.0/0` via `192.168.122.1` (Gi0/0)
 * `172.16.0.0/16` via `10.10.2.2` (Gi0/3, interno)
-* Host routes `/32` de sondas (evitan fuga circular del SLA por el arco opuesto): `10.0.0.6/32 → 10.0.0.2`, `10.0.0.13/32 → 10.0.0.17`
+* **Anclaje de sondas (v8.4): Local PBR** (`ip local policy route-map RM-LOCAL-SLA`) — **sin rutas `/32`** (eliminadas en v8.4; ver IP SLA).
 * Track 1/2 (line-protocol) ya no gobiernan primarias; quedan como soporte de flotantes y observación E2E no controla redundancia con ellos.
 
 ## Rutas de respaldo (flotantes AD 20, con track)
@@ -89,7 +89,7 @@ Cambio importante vs 2026-09-07: **el segmento `10.0.0.8/30` (B3-B4) ya es alcan
 
 > **Eliminado en v8.1 (2026-09-07/08):** `10.0.0.16/30 via 10.0.0.2 20 track 1` (wrap del propio segmento este por el oeste). En fallo del este, ese wrap generaba loop B1↔B2: B1 reenviaba `.16/30` a B2 y B2 (por su track 3, que solo exige a B1 vivo) lo devolvía a B1 incesantemente. Eliminado y verificado por boot-test de persistencia.
 
-Lógica: sin "entrada primaria" (es un anillo). Cada segmento lejano se alcanza por el arco corto (AD 1) y, si cae su track, vira por el arco contrario (AD 20) plegando el anillo. La config canónica vigente es **v8.2** (persistida en el config-disk `IOSv_startup_config.img`, no solo en overlay).
+Lógica: sin "entrada primaria" (es un anillo). Cada segmento lejano se alcanza por el arco corto (AD 1) y, si cae su track, vira por el arco contrario (AD 20) plegando el anillo. La config canónica vigente es **v8.4** (persistida en el config-disk `IOSv_startup_config.img`, no solo en overlay, checksum `0f6a5826e4a293d1dc0e6d872b13afee`).
 
 ## Sondas remotas hacia B1 (otros bancos → nuestras IPs)
 Confirmado en documentación de los vecinos (2026-09-07/08):
@@ -101,13 +101,15 @@ Confirmado en documentación de los vecinos (2026-09-07/08):
 * Hoy solo reciben los del **arco oeste** (B2/B3 a `.1`): los del este (B3/B4/B5 hacia `.18`) dependen de que B5 esté vivo y estable.
 
 ## IP SLA
-* **Uso en routing (v8.3, E2E):** los SLAs **2 y 5 (echo a `.6`/`.13` = vecino-del-vecino)** gobiernan las primarias del ring a través de los tracks 10/20 (failover por alcance de 2 saltos, no por línea).
-  * sla2 → `10.0.0.6` (B3, vía B2) + `/32 via 10.0.0.2` → track 10 → primarias de `.4/30` y `.8/30`.
-  * sla5 → `10.0.0.13` (B4, vía B5) + `/32 via 10.0.0.17` → track 20 → primaria de `.12/30`.
+* **Uso en routing (v8.4, E2E):** los SLAs **2 y 5 (echo a `.6`/`.13` = vecino-del-vecino)** gobiernan las primarias del ring a través de los tracks 10/20 (failover por alcance de 2 saltos, no por línea).
+  * sla2 → `10.0.0.6` (B3), `source-interface Gi0/1` (origen `10.0.0.1`) → track 10 → primarias de `.4/30` y `.8/30`.
+  * sla5 → `10.0.0.13` (B4), `source-interface Gi0/2` (origen `10.0.0.18`) → track 20 → primaria de `.12/30`.
+  * **Anclaje por Local PBR (v8.4, recomendación de `docs/GUIA_SONDEO_END_TO_END_BANCO5.md`):** ACLs `ACL-SLA-B2-B3` (src `10.0.0.1`→dst `10.0.0.6`) y `ACL-SLA-B5-B4` (src `10.0.0.18`→dst `10.0.0.13`) + route-map `RM-LOCAL-SLA` (`set ip next-hop 10.0.0.2` / `10.0.0.17`) + `ip local policy route-map RM-LOCAL-SLA`. Solo ancla las sondas (ICMP originadas por el router con fuente = IP de cara); el tráfico real sigue las rutas `/30` con track/respaldo.
+  * **POR QUÉ se eliminaron las rutas `/32` (v8.3):** la ruta fija `/32` por longest-prefix-match secuestraba **todo** el tráfico a la IP exacta, no solo la sonda. Comprobado en drill real (B1→corte B5-B4): con track 20 Down y la flotante `.12/30→.2` activa, un `ping 10.0.0.13` seguía saliendo por el este (`10.0.0.17`) y moría (primer salto `.17`, no `.2`). Con PBR esa IP exacta queda libre y el tráfico real conmuta correctamente.
   * Histéresis de tracks 10/20: `delay down 10 up 5` (inmune a la flake ICMP de B5).
-  * La guía `docs/GUIA_SONDEO_END_TO_END.md` (B4) proponía SLAs 10/20 con `frequency 3`; se reutilizaron los SLAs 2/5 existentes (mismo destino, `frequency 5`) para no duplicar sondas.
+  * Reutilizados SLAs 2/5 (`frequency 5`, timeout 5000) en vez de sla10/20 con `frequency 3` de la plantilla de B4.
 * **IP SLA de observación (v8.2):** 5 sondas ICMP echo cada 5 s para monitorear los tramos del anillo (tracks 3-7, solo observación). El scheduler **sí re-ejecuta** en este IOSv (contador de éxitos crece en vivo).
-* `show ip sla statistics` / `show track brief` dan el estado de cada tramo en un vistazo.
+* `show ip sla statistics` / `show track brief` dan el estado de cada tramo en un vistazo. `show route-map RM-LOCAL-SLA` muestra contadores de "Policy routing matches" creciendo (prueba de que el PBR ancla solo las sondas).
 
 ## Tracks
 * `track 1` interface `GigabitEthernet0/1` line-protocol — **Up** (oeste/B2)
@@ -119,7 +121,7 @@ Confirmado en documentación de los vecinos (2026-09-07/08):
 * `track 7` ip sla 5 (`10.0.0.13` B4-B5) — **Up**
 * `track 10` ip sla 2 (`10.0.0.6` B3) reachability — **Up** — gobierna primarias de `.4/30` y `.8/30` (E2E oeste)
 * `track 20` ip sla 5 (`10.0.0.13` B4) reachability — **Up** — gobierna primaria de `.12/30` (E2E este)
-* Los tracks 3-7 son **solo observación** (no referenciados por ninguna `ip route`); los tracks 10/20 sí controlan failover (v8.3 E2E).
+* Los tracks 3-7 son **solo observación** (no referenciados por ninguna `ip route`); los tracks 10/20 sí controlan failover (E2E).
 
 ## Log de observación del anillo (EEM, v8.2)
 * 5 applets EEM (`RING_SEG_B1-B2`, `RING_SEG_B2-B3`, `RING_SEG_B3-B4`, `RING_SEG_B1-B5`, `RING_SEG_B4-B5`), un evento por applet (`event track <n> state any`), registradas en `show event manager policy registered`.
@@ -206,16 +208,18 @@ Re-verificación 2026-09-08 post-restart (ping 2/2 con `repeat 2 timeout 2`, sal
 * 2026-09-08: **Objetivo 2 — endpoint `/interbancaria` implementado y probado** en `172.16.30.5:80` y publicado en `http://10.0.0.1:80/interbancaria` (despliegue offline del `web_server.py` vía `mydata.tgz`; disco del node convertido a qcow2 autocontenido `.bak_v9` como backup). Pruebas 200/400/404, saldo acreditado una vez por petición.
 * 2026-09-08 ~03:15: **diagnóstico del drill de B4** (ping a `10.0.0.5` con enlace B4-B3 cortado): traceroute muere en `10.0.0.18` por **ruta de retorno ausente en B2** hacia `10.0.0.12/30` (su track 5 hereda la flake ICMP de B5). B1 verificado sano (enganche oeste 100%). Ver sección "Drill de B4".
 * 2026-09-08 ~23:00: **config v8.3 — End-to-End (vecino del vecino) según `docs/GUIA_SONDEO_END_TO_END.md`**: tracks 10/20 (reusan sla2→`.6` y sla5→`.13`, histéresis down 10/up 5) ahora gobiernan las primarias; rutas host `/32` amarran las sondas (`10.0.0.6/32 via 10.0.0.2`, `10.0.0.13/32 via 10.0.0.17`). Aplicado en vivo, validado (tracks 10/20 UP, RIB `.4/.8→.2`, `.12→.17`), persistido en config-disk (master `IOSv_startup_config.img` + overlay del nodo regenerado) y **validado con rearranque limpio** (CVAC CONFIG_DONE, tracks 10/20 UP, `/32` en RIB, rutas E2E instaladas, ping a `.2`/`.6`/`.13`/`.17` 100%).
+* 2026-09-08: **validación negativa v8.3 (drill B5-B4 desconectado):** detectado el efecto secundario de las rutas `/32` de la plantilla original (longest-prefix-match): con track 20 Down y la flotante `.12/30→10.0.0.2` activa, `ping 10.0.0.13` **no** conmutaba — seguía saliendo por `10.0.0.17` (primer salto `.17`, luego timeout) porque la `/32` fija secuestraba el tráfico real a esa IP exacta. Es exactamente el riesgo documentado por Banco 5 en `docs/GUIA_SONDEO_END_TO_END_BANCO5.md`.
+* 2026-09-08 ~06:05: **config v8.4 — reemplazo del anclaje `/32` por Local PBR** (recomendación de la guía de B5, igual que la técnica ya usada en B3/B5): `no ip route 10.0.0.6/32` y `no ip route 10.0.0.13/32`; `source-interface Gi0/1`/`Gi0/2` en sla2/sla5 (recreados porque en IOSv "Entry already running cannot be modified"); ACLs `ACL-SLA-B2-B3`/`ACL-SLA-B5-B4` (solo `icmp host <nuestra IP> por cara` → destino salto 2), route-map `RM-LOCAL-SLA` (`set ip next-hop` 10.0.0.2/10.0.0.17) e `ip local policy route-map RM-LOCAL-SLA`. Tras el disco el tráfico real a la IP exacta sigue las `/30` con track (prueba: `show ip route 10.0.0.13` = `/30`, no `/32`; contadores `show route-map` creciendo). **Persistido en config-disk (master) y validado con rearranque limpio**: `%CVAC-4-CONFIG_DONE`, 0 `%PARSER`, tracks 10/20 UP, sla2/sla5 con `source-interface` correcto, PBR activo. Checksum master: `0f6a5826e4a293d1dc0e6d872b13afee`.
 
 ## Pendientes
 * Endpoint `/interbancaria` implementado y probado localmente; **pendiente** validación coordinada real desde B2/B3/B5 (sin transferencia interbancaria real por instrucción) y definir conciliación contable si el emisor envía `cuenta_origen` no local (solo eco por ahora).
-* Drill de failover autorizado (corte de 30 s por lado) — ahora el failover es E2E (tracks 10/20); el drill validaría que los cortes disparan los tracks correctos y las flotantes asumen con histéresis.
+* Drill de failover autorizado (corte de 30 s por lado) — ahora el failover es E2E (tracks 10/20) y el anclaje de sondas es PBR (v8.4). **Re-drill pendiente** con el corte B5-B4 para confirmar que el tráfico real a `10.0.0.13` YA conmuta al oeste (en v8.3 quedaba secuestrado por la `/32`); el primer salto esperado ahora es `10.0.0.2`.
 * B5 confirmado respondiendo en la última validación (ICMP `.17`/`.13` 100%, tracks 6/7/20 Up post-boot v8.3) y su doc reporta E2E Hop-2 activo — **cerrado el PENDIENTE previo** de "B5 mudo"; si reaparece la flake, condiciona el track 20 (E2E este).
 * Confirmar con Banco 2 que migró su `.12/30` a E2E (debe dejar de depender del track 5 AND B1+B5-vía-B1, ver drill de B4) para que la flotante `10.0.0.12/30 via 10.0.0.2` de B1 sea segura sin rebote.
 * B3 coordinaría la adopción E2E grupal y actualizar `ESTADO_ANILLO.md` (sondas vecino-del-vecino por banco, tabla maestra de la guía).
 
 ## Notas para otros bancos
-* **B4 (coordinador E2E):** B1 **adoptó** el esquema de `docs/GUIA_SONDEO_END_TO_END.md` (config v8.3, validada con rearranque limpio). Adaptaciones vs la plantilla: (1) se reutilizaron los SLAs 2/5 existentes en vez de crear sla10/20 (`frequency 5` en vez de 3); (2) histéresis down 10/up 5 (en vez de 6/3) para tolerar la flake ICMP de B5; (3) **flotantes con track** (AD 20 trackeadas, no sin-track como la plantilla) para evitar flotantes ciegas. Portabilidad de la guía al grupo: **confirmada en B1**.
+* **B4 (coordinador E2E):** B1 **adoptó** el esquema de `docs/GUIA_SONDEO_END_TO_END.md` (v8.3, validada con rearranque) y luego **corrigió el anclaje de sondas a Local PBR (v8.4)** siguiendo `docs/GUIA_SONDEO_END_TO_END_BANCO5.md`: las rutas `/32` de la plantilla secuestran el tráfico real a la IP exacta del salto 2 (longest-prefix-match) y rompían el failover — comprobado en drill real. B1 recomienda al grupo **no usar `/32`** de ancla y adoptar `ip local policy` + ACLs de sonda (cf. técnica B3/B5). Adaptaciones vs la plantilla: (1) se reutilizaron los SLAs 2/5 existentes (`frequency 5` en vez de 3); (2) histéresis down 10/up 5 (en vez de 6/3) para tolerar la flake ICMP de B5; (3) **flotantes con track** (AD 20 trackeadas) para evitar flotantes ciegas. Portabilidad de la guía al grupo: **confirmada en B1**.
 * **Evaluación Hop-3 (vecino del vecino del vecino) — conclusión B1:** en este anillo de 5 nodos **no aporta** monitorear el tercer salto (`.10`/`.9` desde B1): cada enlace ya queda cubierto por el par correspondiente (B2 valida `.10`; B5 valida `.9`; B3/B4 también) y Hop-2 duplica la cobertura de todo el anillo. Agregar sondas Hop-3 añadiría ruido, latencia de convergencia y dependencia de la salud de un banco extra sin información nueva. B1 mantiene Hop-2 (lo coordinado); desestimamos Hop-3 por redundancia estructural (documentado para el grupo).
 * **B3 (coordinador):** re-ejecutar sus sondas SLA/PBR hacia B1 y hacia `.8/30`: el nodo responde ICMP, el arco oeste hasta `.10` (B4) está operativo y B1 ya no tiene dead-route hacia `.8/30`. `ESTADO_ANILLO.md` debe actualizarse (arco oeste OK, B5 flapeando, fix v8.1 + observación v8.2 + E2E v8.3 de B1). El requerimiento de su Paso 2 (`ip route 10.0.0.8 ... 10.0.0.17 20 track 2`) ya está satisfecho en B1 desde v7 (y en v8.3 permanece).
 * **B2:** confirmar corrección del estado de sus tracks 4/6 (el tráfico B1→B4 vía `.8/30` YA transita por B2/B3; sus docs siguen listando Null0).
