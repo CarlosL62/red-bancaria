@@ -1,164 +1,317 @@
-<mxfile host="app.diagrams.net" modified="2026-09-08T07:15:00.000Z" agent="Antigravity" version="21.0.0" type="device">
-  <diagram id="topologia-banco4" name="Topologia Banco 4 - Doble ISP y Anillo">
-    <mxGraphModel dx="1422" dy="850" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1100" background="#F8FAFC" math="0" shadow="0">
+<mxfile host="app.diagrams.net" agent="Antigravity" version="21.0.0" pages="1">
+  <diagram id="banco4-topology" name="Banco 4">
+    <mxGraphModel dx="1600" dy="1200" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="1200" background="#ffffff" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
 
-        <!-- CONTENEDOR ANILLO INTERBANCARIO -->
-        <mxCell id="box-anillo" value="ANILLO INTERBANCARIO (TRÁNSITO L3)" style="swimlane;whiteSpace=wrap;html=1;fillColor=#EBF8FF;strokeColor=#3182CE;fontStyle=1;fontSize=14;fontColor=#2B6CB0;startSize=30;rounded=1;arcSize=10;" vertex="1" parent="1">
-          <mxGeometry x="120" y="40" width="1360" height="180" as="geometry" />
+        <!-- TITULO -->
+        <mxCell id="title" parent="1" style="text;strokeColor=none;fillColor=none;html=1;fontSize=20;fontStyle=1;verticalAlign=middle;align=center;autosizeText=1;" value="Topología de Red&lt;br&gt;Banco 4 — Banco con Doble ISP y Anillo Interbancario" vertex="1">
+          <mxGeometry height="60" width="450" x="475" y="20" as="geometry" />
         </mxCell>
 
-        <mxCell id="node-b3" value="&lt;b&gt;BANCO 3 (R-WAN)&lt;/b&gt;&lt;br&gt;IP: 10.0.0.9/30&lt;br&gt;(eno1 / CLOUD-B3)" style="shape=mxgraph.cisco.routers.router;sketch=0;html=1;pointerEvents=1;dashed=0;fillColor=#3182CE;strokeColor=#2B6CB0;verticalLabelPosition=bottom;verticalAlign=top;align=center;fillColor2=#005073;fontColor=#1A202C;" vertex="1" parent="box-anillo">
-          <mxGeometry x="150" y="55" width="70" height="55" as="geometry" />
+        <!-- ==================== CAPA 1: ANILLO INTERBANCARIO ==================== -->
+        
+        <!-- Cloud Banco 3 -->
+        <mxCell id="cloud-b3" parent="1" style="image;aspect=fixed;perimeter=ellipsePerimeter;html=1;align=center;shadow=0;dashed=0;spacingTop=3;image=img/lib/active_directory/internet_cloud.svg;" value="" vertex="1">
+          <mxGeometry height="56.7" width="90" x="160" y="140" as="geometry" />
+        </mxCell>
+        <mxCell id="lbl-cloud-b3" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;fontStyle=1;" value="CLOUD-B3&lt;div&gt;(Banco 3 R-WAN)&lt;/div&gt;" vertex="1">
+          <mxGeometry height="30" width="120" x="145" y="205" as="geometry" />
+        </mxCell>
+        <mxCell id="ip-b3" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="IP: 10.0.0.9/30&lt;div&gt;eno1&lt;/div&gt;" vertex="1">
+          <mxGeometry height="30" width="100" x="155" y="235" as="geometry" />
         </mxCell>
 
-        <mxCell id="node-internet" value="&lt;b&gt;INTERNET (Router Borde B4)&lt;/b&gt;&lt;br&gt;&lt;i&gt;Alpine Linux 3.20 (L3 Transit)&lt;/i&gt;&lt;br&gt;eth3: 10.0.0.10/30 (a B3)&lt;br&gt;eth4: 10.0.0.13/30 (a B5)&lt;br&gt;eth0: 100.64.1.2 | eth1: 100.64.2.2&lt;br&gt;eth2: 10.255.4.2/24 (Salida Real)" style="shape=mxgraph.cisco.routers.router;sketch=0;html=1;pointerEvents=1;dashed=0;fillColor=#2B6CB0;strokeColor=#1A365D;verticalLabelPosition=bottom;verticalAlign=top;align=center;fontColor=#1A202C;" vertex="1" parent="box-anillo">
-          <mxGeometry x="640" y="50" width="85" height="65" as="geometry" />
+        <!-- Router INTERNET (Borde Banco 4) -->
+        <mxCell id="router-internet" parent="1" style="image;html=1;image=img/lib/clip_art/networking/Router_Icon_128x128.png;" value="" vertex="1">
+          <mxGeometry height="80" width="80" x="660" y="130" as="geometry" />
+        </mxCell>
+        <mxCell id="lbl-router-internet" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;fontStyle=1;" value="INTERNET&lt;div&gt;(Router Borde B4 - Alpine)&lt;/div&gt;" vertex="1">
+          <mxGeometry height="30" width="160" x="620" y="215" as="geometry" />
         </mxCell>
 
-        <mxCell id="node-b5" value="&lt;b&gt;BANCO 5 (R-WAN)&lt;/b&gt;&lt;br&gt;IP: 10.0.0.14/30&lt;br&gt;(enxc0eac367f731 / CLOUD-B5)" style="shape=mxgraph.cisco.routers.router;sketch=0;html=1;pointerEvents=1;dashed=0;fillColor=#3182CE;strokeColor=#2B6CB0;verticalLabelPosition=bottom;verticalAlign=top;align=center;fillColor2=#005073;fontColor=#1A202C;" vertex="1" parent="box-anillo">
-          <mxGeometry x="1140" y="55" width="70" height="55" as="geometry" />
+        <!-- Cloud Banco 5 -->
+        <mxCell id="cloud-b5" parent="1" style="image;aspect=fixed;perimeter=ellipsePerimeter;html=1;align=center;shadow=0;dashed=0;spacingTop=3;image=img/lib/active_directory/internet_cloud.svg;" value="" vertex="1">
+          <mxGeometry height="56.7" width="90" x="1150" y="140" as="geometry" />
+        </mxCell>
+        <mxCell id="lbl-cloud-b5" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;fontStyle=1;" value="CLOUD-B5&lt;div&gt;(Banco 5 R-WAN)&lt;/div&gt;" vertex="1">
+          <mxGeometry height="30" width="120" x="1135" y="205" as="geometry" />
+        </mxCell>
+        <mxCell id="ip-b5" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;" value="IP: 10.0.0.14/30&lt;div&gt;enxc0eac367f731&lt;/div&gt;" vertex="1">
+          <mxGeometry height="30" width="130" x="1130" y="235" as="geometry" />
         </mxCell>
 
-        <!-- ENLACES ANILLO -->
-        <mxCell id="edge-b3-internet" value="Subred: 10.0.0.8/30&lt;br&gt;Métrica: 10 (Primaria B3/B2)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=3;strokeColor=#2B6CB0;fontColor=#2B6CB0;fontSize=11;" edge="1" parent="box-anillo" source="node-b3" target="node-internet">
+        <!-- Cloud Internet Real (Salida Externa NAT) -->
+        <mxCell id="cloud-real" parent="1" style="image;aspect=fixed;perimeter=ellipsePerimeter;html=1;align=center;shadow=0;dashed=0;spacingTop=3;image=img/lib/active_directory/internet_cloud.svg;" value="" vertex="1">
+          <mxGeometry height="50" width="80" x="660" y="20" as="geometry" />
+        </mxCell>
+        <mxCell id="lbl-cloud-real" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;fontStyle=0;" value="Internet Real&lt;div&gt;10.255.4.1/24&lt;/div&gt;" vertex="1">
+          <mxGeometry height="25" width="90" x="745" y="32.5" as="geometry" />
+        </mxCell>
+
+        <!-- Enlace CLOUD-REAL <-> INTERNET -->
+        <mxCell id="edge-real-internet" edge="1" parent="1" source="cloud-real" target="router-internet" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=none;endFill=0;">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
+        <mxCell id="lbl-edge-real" connectable="0" parent="edge-real-internet" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="eth2: 10.255.4.2" vertex="1">
+          <mxGeometry relative="1" x="0.2" y="1" as="geometry"><mxPoint x="40" as="offset" /></mxGeometry>
+        </mxCell>
 
-        <mxCell id="edge-b5-internet" value="Subred: 10.0.0.12/30&lt;br&gt;Métrica: 10 (Primaria B5/B1)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=3;strokeColor=#2B6CB0;fontColor=#2B6CB0;fontSize=11;" edge="1" parent="box-anillo" source="node-internet" target="node-b5">
+        <!-- Enlace B3 <-> INTERNET -->
+        <mxCell id="edge-b3-internet" edge="1" parent="1" source="cloud-b3" target="router-internet" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=none;endFill=0;">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-
-
-        <!-- CONTENEDOR DOBLE ISP -->
-        <mxCell id="box-isp" value="PROVEEDORES INTERNOS - DOBLE ISP REDUNDANTE" style="swimlane;whiteSpace=wrap;html=1;fillColor=#FEFCBF;strokeColor=#D69E2E;fontStyle=1;fontSize=14;fontColor=#744210;startSize=30;rounded=1;arcSize=10;" vertex="1" parent="1">
-          <mxGeometry x="380" y="270" width="840" height="170" as="geometry" />
+        <mxCell id="lbl-edge-b3-1" connectable="0" parent="edge-b3-internet" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="eno1" vertex="1">
+          <mxGeometry relative="1" x="-0.7" as="geometry"><mxPoint y="-12" as="offset" /></mxGeometry>
+        </mxCell>
+        <mxCell id="lbl-edge-b3-2" connectable="0" parent="edge-b3-internet" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="eth3: 10.0.0.10" vertex="1">
+          <mxGeometry relative="1" x="0.7" as="geometry"><mxPoint y="-12" as="offset" /></mxGeometry>
+        </mxCell>
+        <mxCell id="box-subred-b3" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;fontStyle=1;" value="SUBRED B3 ↔ BANCO 4&lt;div&gt;10.0.0.8/30&lt;/div&gt;" vertex="1">
+          <mxGeometry height="30" width="160" x="370" y="135" as="geometry" />
         </mxCell>
 
-        <mxCell id="node-isp1" value="&lt;b&gt;ISP1 (Cisco 7200)&lt;/b&gt;&lt;br&gt;WAN: 100.64.1.1/30 (a INTERNET)&lt;br&gt;LAN: 200.4.1.1/30 (a FW-BANCO4)" style="shape=mxgraph.cisco.routers.router;sketch=0;html=1;pointerEvents=1;dashed=0;fillColor=#D69E2E;strokeColor=#B7791F;verticalLabelPosition=bottom;verticalAlign=top;align=center;fontColor=#1A202C;" vertex="1" parent="box-isp">
-          <mxGeometry x="160" y="55" width="70" height="55" as="geometry" />
+        <!-- Enlace INTERNET <-> B5 -->
+        <mxCell id="edge-internet-b5" edge="1" parent="1" source="router-internet" target="cloud-b5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=none;endFill=0;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="lbl-edge-b5-1" connectable="0" parent="edge-b5-internet" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="eth4: 10.0.0.13" vertex="1">
+          <mxGeometry relative="1" x="-0.7" as="geometry"><mxPoint y="-12" as="offset" /></mxGeometry>
+        </mxCell>
+        <mxCell id="lbl-edge-b5-2" connectable="0" parent="edge-b5-internet" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="enxc0eac367f731" vertex="1">
+          <mxGeometry relative="1" x="0.7" as="geometry"><mxPoint y="-12" as="offset" /></mxGeometry>
+        </mxCell>
+        <mxCell id="box-subred-b5" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;fontStyle=1;" value="SUBRED BANCO 4 ↔ B5&lt;div&gt;10.0.0.12/30&lt;/div&gt;" vertex="1">
+          <mxGeometry height="30" width="160" x="880" y="135" as="geometry" />
         </mxCell>
 
-        <mxCell id="node-isp2" value="&lt;b&gt;ISP2 (Cisco 7200)&lt;/b&gt;&lt;br&gt;WAN: 100.64.2.1/30 (a INTERNET)&lt;br&gt;LAN: 200.4.2.1/30 (a FW-BANCO4)" style="shape=mxgraph.cisco.routers.router;sketch=0;html=1;pointerEvents=1;dashed=0;fillColor=#D69E2E;strokeColor=#B7791F;verticalLabelPosition=bottom;verticalAlign=top;align=center;fontColor=#1A202C;" vertex="1" parent="box-isp">
-          <mxGeometry x="610" y="55" width="70" height="55" as="geometry" />
+
+        <!-- ==================== CAPA 2: DOBLE ISP REDUNDANTE ==================== -->
+
+        <!-- ISP1 Router -->
+        <mxCell id="router-isp1" parent="1" style="image;html=1;image=img/lib/clip_art/networking/Router_Icon_128x128.png;" value="" vertex="1">
+          <mxGeometry height="80" width="80" x="430" y="330" as="geometry" />
+        </mxCell>
+        <mxCell id="lbl-router-isp1" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;fontStyle=1;" value="ISP1&lt;div&gt;(Cisco 7200)&lt;/div&gt;" vertex="1">
+          <mxGeometry height="30" width="90" x="425" y="415" as="geometry" />
         </mxCell>
 
-        <!-- ENLACES INTERNET A ISP1 E ISP2 -->
-        <mxCell id="edge-internet-isp1" value="eth0: 100.64.1.2/30 ↔ 100.64.1.1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#D69E2E;fontColor=#744210;fontSize=11;" edge="1" parent="1" source="node-internet" target="node-isp1">
+        <!-- ISP2 Router -->
+        <mxCell id="router-isp2" parent="1" style="image;html=1;image=img/lib/clip_art/networking/Router_Icon_128x128.png;" value="" vertex="1">
+          <mxGeometry height="80" width="80" x="890" y="330" as="geometry" />
+        </mxCell>
+        <mxCell id="lbl-router-isp2" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;fontStyle=1;" value="ISP2&lt;div&gt;(Cisco 7200)&lt;/div&gt;" vertex="1">
+          <mxGeometry height="30" width="90" x="885" y="415" as="geometry" />
+        </mxCell>
+
+        <!-- Enlace INTERNET -> ISP1 -->
+        <mxCell id="edge-internet-isp1" edge="1" parent="1" source="router-internet" target="router-isp1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=none;endFill=0;">
           <mxGeometry relative="1" as="geometry">
             <Array as="points">
-              <mxPoint x="780" y="240" />
-              <mxPoint x="575" y="240" />
+              <mxPoint x="680" y="270" />
+              <mxPoint x="470" y="270" />
             </Array>
           </mxGeometry>
         </mxCell>
+        <mxCell id="lbl-int-isp1-1" connectable="0" parent="edge-internet-isp1" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="eth0: 100.64.1.2" vertex="1">
+          <mxGeometry relative="1" x="-0.6" as="geometry"><mxPoint x="-15" y="-12" as="offset" /></mxGeometry>
+        </mxCell>
+        <mxCell id="lbl-int-isp1-2" connectable="0" parent="edge-internet-isp1" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="Fa0/0: 100.64.1.1" vertex="1">
+          <mxGeometry relative="1" x="0.7" as="geometry"><mxPoint x="45" as="offset" /></mxGeometry>
+        </mxCell>
+        <mxCell id="box-subred-isp1" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;fontStyle=1;" value="SUBRED INTERNET ↔ ISP1&lt;div&gt;100.64.1.0/30&lt;/div&gt;" vertex="1">
+          <mxGeometry height="30" width="180" x="490" y="285" as="geometry" />
+        </mxCell>
 
-        <mxCell id="edge-internet-isp2" value="eth1: 100.64.2.2/30 ↔ 100.64.2.1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#D69E2E;fontColor=#744210;fontSize=11;" edge="1" parent="1" source="node-internet" target="node-isp2">
+        <!-- Enlace INTERNET -> ISP2 -->
+        <mxCell id="edge-internet-isp2" edge="1" parent="1" source="router-internet" target="router-isp2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=none;endFill=0;">
           <mxGeometry relative="1" as="geometry">
             <Array as="points">
-              <mxPoint x="825" y="240" />
-              <mxPoint x="1025" y="240" />
+              <mxPoint x="720" y="270" />
+              <mxPoint x="930" y="270" />
             </Array>
           </mxGeometry>
         </mxCell>
-
-
-        <!-- FIREWALL PERIMETRAL -->
-        <mxCell id="box-firewall" value="PERÍMETRO Y SEGURIDAD" style="swimlane;whiteSpace=wrap;html=1;fillColor=#FED7D7;strokeColor=#E53E3E;fontStyle=1;fontSize=14;fontColor=#9B2C2C;startSize=30;rounded=1;arcSize=10;" vertex="1" parent="1">
-          <mxGeometry x="540" y="490" width="520" height="150" as="geometry" />
+        <mxCell id="lbl-int-isp2-1" connectable="0" parent="edge-internet-isp2" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="eth1: 100.64.2.2" vertex="1">
+          <mxGeometry relative="1" x="-0.6" as="geometry"><mxPoint x="15" y="-12" as="offset" /></mxGeometry>
         </mxCell>
-
-        <mxCell id="node-fw" value="&lt;b&gt;FW-BANCO4 (Alpine Linux)&lt;/b&gt;&lt;br&gt;&lt;i&gt;Firewall nftables + Failover ISP&lt;/i&gt;&lt;br&gt;eth0: 200.4.1.2/30 (vía ISP1 - Activo)&lt;br&gt;eth1: 200.4.2.2/30 (vía ISP2 - Backup)&lt;br&gt;eth2: Troncal 802.1Q (VLAN 10, 20, 30)" style="shape=mxgraph.cisco.security.firewall;sketch=0;html=1;pointerEvents=1;dashed=0;fillColor=#E53E3E;strokeColor=#9B2C2C;verticalLabelPosition=bottom;verticalAlign=top;align=center;fontColor=#1A202C;" vertex="1" parent="box-firewall">
-          <mxGeometry x="225" y="45" width="70" height="55" as="geometry" />
+        <mxCell id="lbl-int-isp2-2" connectable="0" parent="edge-internet-isp2" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="Fa0/0: 100.64.2.1" vertex="1">
+          <mxGeometry relative="1" x="0.7" as="geometry"><mxPoint x="-45" as="offset" /></mxGeometry>
         </mxCell>
-
-        <!-- ENLACES ISP A FIREWALL -->
-        <mxCell id="edge-isp1-fw" value="200.4.1.0/30 (ISP1)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#E53E3E;fontColor=#9B2C2C;fontSize=11;" edge="1" parent="1" source="node-isp1" target="node-fw">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-
-        <mxCell id="edge-isp2-fw" value="200.4.2.0/30 (ISP2)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#E53E3E;fontColor=#9B2C2C;fontSize=11;" edge="1" parent="1" source="node-isp2" target="node-fw">
-          <mxGeometry relative="1" as="geometry" />
+        <mxCell id="box-subred-isp2" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;fontStyle=1;" value="SUBRED INTERNET ↔ ISP2&lt;div&gt;100.64.2.0/30&lt;/div&gt;" vertex="1">
+          <mxGeometry height="30" width="180" x="730" y="285" as="geometry" />
         </mxCell>
 
 
-        <!-- CORE SWITCH -->
-        <mxCell id="node-switch" value="&lt;b&gt;SW-B4 (Open vSwitch Core)&lt;/b&gt;&lt;br&gt;Trunk 802.1Q: VLAN 10, 20, 30" style="shape=mxgraph.cisco.switches.workgroup_switch;sketch=0;html=1;pointerEvents=1;dashed=0;fillColor=#319795;strokeColor=#234E52;verticalLabelPosition=bottom;verticalAlign=top;align=center;fontColor=#1A202C;" vertex="1" parent="1">
-          <mxGeometry x="760" y="690" width="80" height="55" as="geometry" />
+        <!-- ==================== CAPA 3: PERIMETRO FIREWALL ==================== -->
+
+        <!-- Firewall FW-BANCO4 -->
+        <mxCell id="fw-banco4" parent="1" style="image;aspect=fixed;perimeter=ellipsePerimeter;html=1;align=center;shadow=0;dashed=0;spacingTop=3;image=img/lib/active_directory/firewall.svg;" value="" vertex="1">
+          <mxGeometry height="100" width="61" x="670" y="490" as="geometry" />
+        </mxCell>
+        <mxCell id="lbl-fw-banco4" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;fontStyle=1;" value="FW-BANCO4&lt;div&gt;(Alpine Linux nftables)&lt;/div&gt;&lt;div&gt;Script Failover ISP1 ↔ ISP2&lt;/div&gt;" vertex="1">
+          <mxGeometry height="45" width="180" x="610.5" y="595" as="geometry" />
         </mxCell>
 
-        <mxCell id="edge-fw-switch" value="Troncal 802.1Q (eth2)&lt;br&gt;Subinterfaces: eth2.10, eth2.20, eth2.30" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=3;strokeColor=#234E52;fontColor=#234E52;fontSize=11;" edge="1" parent="1" source="node-fw" target="node-switch">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-
-
-        <!-- CONTENEDORES DE VLANS -->
-        <!-- VLAN 10 -->
-        <mxCell id="box-vlan10" value="VLAN 10: USUARIOS (192.168.41.0/24)" style="swimlane;whiteSpace=wrap;html=1;fillColor=#E6FFFA;strokeColor=#319795;fontStyle=1;fontSize=12;fontColor=#234E52;startSize=25;rounded=1;arcSize=10;" vertex="1" parent="1">
-          <mxGeometry x="120" y="800" width="340" height="230" as="geometry" />
-        </mxCell>
-
-        <mxCell id="node-pcuser" value="&lt;b&gt;PC-USUARIO&lt;/b&gt;&lt;br&gt;IP: 192.168.41.10/24&lt;br&gt;GW: 192.168.41.1 (FW)&lt;br&gt;&lt;i&gt;Pruebas de cliente bancario&lt;/i&gt;" style="shape=mxgraph.cisco.computers_and_peripherals.pc;sketch=0;html=1;pointerEvents=1;dashed=0;fillColor=#319795;strokeColor=#234E52;verticalLabelPosition=bottom;verticalAlign=top;align=center;fontColor=#1A202C;" vertex="1" parent="box-vlan10">
-          <mxGeometry x="135" y="65" width="60" height="50" as="geometry" />
-        </mxCell>
-
-        <mxCell id="edge-sw-vlan10" value="VLAN 10 Access" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#319795;fontSize=11;" edge="1" parent="1" source="node-switch" target="node-pcuser">
+        <!-- Enlace ISP1 -> FW -->
+        <mxCell id="edge-isp1-fw" edge="1" parent="1" source="router-isp1" target="fw-banco4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=none;endFill=0;strokeColor=#b85450;">
           <mxGeometry relative="1" as="geometry">
             <Array as="points">
-              <mxPoint x="770" y="770" />
-              <mxPoint x="285" y="770" />
+              <mxPoint x="470" y="470" />
+              <mxPoint x="680" y="470" />
             </Array>
           </mxGeometry>
         </mxCell>
-
-
-        <!-- VLAN 20 -->
-        <mxCell id="box-vlan20" value="VLAN 20: BANCA APP &amp; DB (192.168.42.0/24)" style="swimlane;whiteSpace=wrap;html=1;fillColor=#F0FFF4;strokeColor=#38A169;fontStyle=1;fontSize=12;fontColor=#22543D;startSize=25;rounded=1;arcSize=10;" vertex="1" parent="1">
-          <mxGeometry x="520" y="800" width="480" height="230" as="geometry" />
+        <mxCell id="lbl-isp1-fw-1" connectable="0" parent="edge-isp1-fw" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="Fa1/0: 200.4.1.1" vertex="1">
+          <mxGeometry relative="1" x="-0.7" as="geometry"><mxPoint x="-35" as="offset" /></mxGeometry>
+        </mxCell>
+        <mxCell id="lbl-isp1-fw-2" connectable="0" parent="edge-isp1-fw" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="eth0: 200.4.1.2 (Activo)" vertex="1">
+          <mxGeometry relative="1" x="0.6" as="geometry"><mxPoint x="-45" as="offset" /></mxGeometry>
+        </mxCell>
+        <mxCell id="box-subred-fw1" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;fontStyle=1;" value="SUBRED ISP1 ↔ FW&lt;div&gt;200.4.1.0/30&lt;/div&gt;" vertex="1">
+          <mxGeometry height="30" width="150" x="510" y="440" as="geometry" />
         </mxCell>
 
-        <mxCell id="node-app" value="&lt;b&gt;SRV-BANCA-APP-1&lt;/b&gt;&lt;br&gt;IP: 192.168.42.20/24&lt;br&gt;Puerto: 5000 (Flask Web)&lt;br&gt;GW: 192.168.42.1" style="shape=mxgraph.cisco.servers.standard_host;sketch=0;html=1;pointerEvents=1;dashed=0;fillColor=#38A169;strokeColor=#22543D;verticalLabelPosition=bottom;verticalAlign=top;align=center;fontColor=#1A202C;" vertex="1" parent="box-vlan20">
-          <mxGeometry x="80" y="65" width="55" height="60" as="geometry" />
-        </mxCell>
-
-        <mxCell id="node-db" value="&lt;b&gt;SRV-BANCA-DB-1&lt;/b&gt;&lt;br&gt;IP: 192.168.42.10/24&lt;br&gt;Puerto: 5432 (PostgreSQL)&lt;br&gt;GW: 192.168.42.1" style="shape=mxgraph.cisco.servers.database_server;sketch=0;html=1;pointerEvents=1;dashed=0;fillColor=#38A169;strokeColor=#22543D;verticalLabelPosition=bottom;verticalAlign=top;align=center;fontColor=#1A202C;" vertex="1" parent="box-vlan20">
-          <mxGeometry x="320" y="65" width="55" height="60" as="geometry" />
-        </mxCell>
-
-        <mxCell id="edge-app-db" value="SQL 5432" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1;dashed=1;strokeColor=#22543D;fontSize=10;" edge="1" parent="box-vlan20" source="node-app" target="node-db">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-
-        <mxCell id="edge-sw-app" value="VLAN 20 Access" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#38A169;fontSize=11;" edge="1" parent="1" source="node-switch" target="node-app">
+        <!-- Enlace ISP2 -> FW -->
+        <mxCell id="edge-isp2-fw" edge="1" parent="1" source="router-isp2" target="fw-banco4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=none;endFill=0;dashed=1;strokeColor=#b85450;">
           <mxGeometry relative="1" as="geometry">
             <Array as="points">
-              <mxPoint x="800" y="770" />
-              <mxPoint x="628" y="770" />
+              <mxPoint x="930" y="470" />
+              <mxPoint x="720" y="470" />
             </Array>
           </mxGeometry>
         </mxCell>
-
-
-        <!-- VLAN 30 -->
-        <mxCell id="box-vlan30" value="VLAN 30: DMZ &amp; SERVICIOS (192.168.43.0/24)" style="swimlane;whiteSpace=wrap;html=1;fillColor=#FFFAF0;strokeColor=#DD6B20;fontStyle=1;fontSize=12;fontColor=#7B341E;startSize=25;rounded=1;arcSize=10;" vertex="1" parent="1">
-          <mxGeometry x="1060" y="800" width="460" height="230" as="geometry" />
+        <mxCell id="lbl-isp2-fw-1" connectable="0" parent="edge-isp2-fw" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="Fa1/0: 200.4.2.1" vertex="1">
+          <mxGeometry relative="1" x="-0.7" as="geometry"><mxPoint x="35" as="offset" /></mxGeometry>
+        </mxCell>
+        <mxCell id="lbl-isp2-fw-2" connectable="0" parent="edge-isp2-fw" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="eth1: 200.4.2.2 (Backup)" vertex="1">
+          <mxGeometry relative="1" x="0.6" as="geometry"><mxPoint x="50" as="offset" /></mxGeometry>
+        </mxCell>
+        <mxCell id="box-subred-fw2" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;fontStyle=1;" value="SUBRED ISP2 ↔ FW&lt;div&gt;200.4.2.0/30 (Flotante)&lt;/div&gt;" vertex="1">
+          <mxGeometry height="30" width="170" x="750" y="440" as="geometry" />
         </mxCell>
 
-        <mxCell id="node-archivos" value="&lt;b&gt;SRV-ARCHIVOS&lt;/b&gt;&lt;br&gt;&lt;b&gt;(Blacklist Interbancaria)&lt;/b&gt;&lt;br&gt;IP: 192.168.43.20/24&lt;br&gt;Puerto: 8080 (REST API)&lt;br&gt;GW: 192.168.43.1" style="shape=mxgraph.cisco.servers.standard_host;sketch=0;html=1;pointerEvents=1;dashed=0;fillColor=#DD6B20;strokeColor=#7B341E;verticalLabelPosition=bottom;verticalAlign=top;align=center;fontColor=#1A202C;" vertex="1" parent="box-vlan30">
-          <mxGeometry x="90" y="65" width="55" height="60" as="geometry" />
+
+        <!-- ==================== CAPA 4: CORE SWITCHING ==================== -->
+
+        <!-- Switch SW-B4 -->
+        <mxCell id="sw-b4" parent="1" style="strokeColor=#ffffff;sketch=0;html=1;pointerEvents=1;dashed=0;fillColor=#036897;strokeWidth=2;verticalLabelPosition=bottom;verticalAlign=top;align=center;outlineConnect=0;shape=mxgraph.cisco.switches.workgroup_switch;strokeColor2=#FFFFFF;" value="" vertex="1">
+          <mxGeometry height="50" width="101" x="650" y="690" as="geometry" />
+        </mxCell>
+        <mxCell id="lbl-sw-b4" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;fontStyle=1;" value="SW-B4&lt;div&gt;(Open vSwitch Core)&lt;/div&gt;" vertex="1">
+          <mxGeometry height="30" width="130" x="635.5" y="745" as="geometry" />
         </mxCell>
 
-        <mxCell id="node-admin" value="&lt;b&gt;PC-ADMIN&lt;/b&gt;&lt;br&gt;IP: 192.168.43.10/24&lt;br&gt;GW: 192.168.43.1&lt;br&gt;&lt;i&gt;Gestión de Servidores&lt;/i&gt;" style="shape=mxgraph.cisco.computers_and_peripherals.pc;sketch=0;html=1;pointerEvents=1;dashed=0;fillColor=#DD6B20;strokeColor=#7B341E;verticalLabelPosition=bottom;verticalAlign=top;align=center;fontColor=#1A202C;" vertex="1" parent="box-vlan30">
-          <mxGeometry x="300" y="65" width="60" height="50" as="geometry" />
+        <!-- Enlace FW -> Switch (Troncal 802.1Q) -->
+        <mxCell id="edge-fw-sw" edge="1" parent="1" source="fw-banco4" target="sw-b4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=none;endFill=0;strokeWidth=3;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="lbl-fw-sw-1" connectable="0" parent="edge-fw-sw" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="eth2 (Trunk)" vertex="1">
+          <mxGeometry relative="1" x="-0.6" as="geometry"><mxPoint x="38" as="offset" /></mxGeometry>
+        </mxCell>
+        <mxCell id="box-trunk" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;fontStyle=1;" value="Troncal 802.1Q&lt;div&gt;Subinterfaces: eth2.10, eth2.20, eth2.30&lt;/div&gt;" vertex="1">
+          <mxGeometry height="30" width="230" x="710" y="655" as="geometry" />
         </mxCell>
 
-        <mxCell id="edge-sw-archivos" value="VLAN 30 Access" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#DD6B20;fontSize=11;" edge="1" parent="1" source="node-switch" target="node-archivos">
+
+        <!-- ==================== CAPA 5: SEGMENTACION VLANS ==================== -->
+
+        <!-- VLAN 10 (Verde) -->
+        <mxCell id="pc-usuario" parent="1" style="image;html=1;image=img/lib/clip_art/computers/Laptop_128x128.png;" value="" vertex="1">
+          <mxGeometry height="80" width="80" x="220" y="880" as="geometry" />
+        </mxCell>
+        <mxCell id="lbl-pc-usuario" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;fontStyle=1;" value="PC-USUARIO&lt;div&gt;IP: 192.168.41.10/24&lt;/div&gt;&lt;div&gt;GW: 192.168.41.1 (FW eth2.10)&lt;/div&gt;" vertex="1">
+          <mxGeometry height="45" width="180" x="170" y="970" as="geometry" />
+        </mxCell>
+
+        <!-- Enlace SW -> VLAN 10 -->
+        <mxCell id="edge-vlan10" edge="1" parent="1" source="sw-b4" target="pc-usuario" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=none;endFill=0;fillColor=#008a00;strokeColor=#005700;strokeWidth=2;">
           <mxGeometry relative="1" as="geometry">
             <Array as="points">
-              <mxPoint x="830" y="770" />
-              <mxPoint x="1178" y="770" />
+              <mxPoint x="660" y="810" />
+              <mxPoint x="260" y="810" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="lbl-vlan10" connectable="0" parent="edge-vlan10" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="VLAN 10 - Clientes / Usuarios&lt;div&gt;192.168.41.0/24&lt;/div&gt;&lt;div&gt;GW: 192.168.41.1&lt;/div&gt;" vertex="1">
+          <mxGeometry relative="1" x="0.1" as="geometry"><mxPoint x="-30" y="-20" as="offset" /></mxGeometry>
+        </mxCell>
+        <mxCell id="lbl-vlan10-eth" connectable="0" parent="edge-vlan10" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="eth0" vertex="1">
+          <mxGeometry relative="1" x="0.85" as="geometry"><mxPoint y="-10" as="offset" /></mxGeometry>
+        </mxCell>
+
+
+        <!-- VLAN 20 (Azul) - Banca Web & DB -->
+        <mxCell id="srv-app" parent="1" style="image;html=1;image=img/lib/clip_art/computers/Server_128x128.png;" value="" vertex="1">
+          <mxGeometry height="80" width="80" x="530" y="880" as="geometry" />
+        </mxCell>
+        <mxCell id="lbl-srv-app" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;fontStyle=1;" value="SRV-BANCA-APP-1&lt;div&gt;IP: 192.168.42.20/24&lt;/div&gt;&lt;div&gt;Puerto: 5000 (Flask)&lt;/div&gt;&lt;div&gt;GW: 192.168.42.1&lt;/div&gt;" vertex="1">
+          <mxGeometry height="55" width="160" x="490" y="970" as="geometry" />
+        </mxCell>
+
+        <mxCell id="srv-db" parent="1" style="image;html=1;image=img/lib/clip_art/computers/Database_128x128.png;" value="" vertex="1">
+          <mxGeometry height="80" width="80" x="740" y="880" as="geometry" />
+        </mxCell>
+        <mxCell id="lbl-srv-db" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;fontStyle=1;" value="SRV-BANCA-DB-1&lt;div&gt;IP: 192.168.42.10/24&lt;/div&gt;&lt;div&gt;PostgreSQL: 5432&lt;/div&gt;&lt;div&gt;GW: 192.168.42.1&lt;/div&gt;" vertex="1">
+          <mxGeometry height="55" width="160" x="700" y="970" as="geometry" />
+        </mxCell>
+
+        <!-- Enlace App <-> DB -->
+        <mxCell id="edge-app-db" edge="1" parent="1" source="srv-app" target="srv-db" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=none;endFill=0;dashed=1;strokeColor=#1ba1e2;strokeWidth=1.5;">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="lbl-app-db" connectable="0" parent="edge-app-db" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="SQL: 5432" vertex="1">
+          <mxGeometry relative="1" as="geometry"><mxPoint y="-12" as="offset" /></mxGeometry>
+        </mxCell>
+
+        <!-- Enlace SW -> VLAN 20 -->
+        <mxCell id="edge-vlan20" edge="1" parent="1" source="sw-b4" target="srv-app" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=none;endFill=0;fillColor=#0050ef;strokeColor=#001DBC;strokeWidth=2;">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="700" y="810" />
+              <mxPoint x="570" y="810" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="lbl-vlan20" connectable="0" parent="edge-vlan20" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="VLAN 20 - Banca Web &amp; DB&lt;div&gt;192.168.42.0/24&lt;/div&gt;&lt;div&gt;GW: 192.168.42.1&lt;/div&gt;" vertex="1">
+          <mxGeometry relative="1" x="0.05" as="geometry"><mxPoint x="-35" y="-20" as="offset" /></mxGeometry>
+        </mxCell>
+
+
+        <!-- VLAN 30 (Fucsia / Naranja) - DMZ & Blacklist -->
+        <mxCell id="srv-archivos" parent="1" style="image;html=1;image=img/lib/clip_art/computers/Server_128x128.png;" value="" vertex="1">
+          <mxGeometry height="80" width="80" x="1010" y="880" as="geometry" />
+        </mxCell>
+        <mxCell id="lbl-srv-archivos" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;fontStyle=1;" value="SRV-ARCHIVOS&lt;div&gt;(Blacklist REST API)&lt;/div&gt;&lt;div&gt;IP: 192.168.43.20/24&lt;/div&gt;&lt;div&gt;Puerto: 8080 (HTTP)&lt;/div&gt;&lt;div&gt;GW: 192.168.43.1&lt;/div&gt;" vertex="1">
+          <mxGeometry height="70" width="160" x="970" y="970" as="geometry" />
+        </mxCell>
+
+        <mxCell id="pc-admin" parent="1" style="image;html=1;image=img/lib/clip_art/computers/Laptop_128x128.png;" value="" vertex="1">
+          <mxGeometry height="80" width="80" x="1220" y="880" as="geometry" />
+        </mxCell>
+        <mxCell id="lbl-pc-admin" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;fontStyle=1;" value="PC-ADMIN&lt;div&gt;IP: 192.168.43.10/24&lt;/div&gt;&lt;div&gt;GW: 192.168.43.1&lt;/div&gt;&lt;div&gt;(Gestión y SSH)&lt;/div&gt;" vertex="1">
+          <mxGeometry height="55" width="150" x="1185" y="970" as="geometry" />
+        </mxCell>
+
+        <!-- Enlace SW -> VLAN 30 -->
+        <mxCell id="edge-vlan30" edge="1" parent="1" source="sw-b4" target="srv-archivos" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=none;endFill=0;fillColor=#d80073;strokeColor=#A20025;strokeWidth=2;">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="740" y="810" />
+              <mxPoint x="1050" y="810" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="lbl-vlan30" connectable="0" parent="edge-vlan30" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" value="VLAN 30 - DMZ &amp; Blacklist&lt;div&gt;192.168.43.0/24&lt;/div&gt;&lt;div&gt;GW: 192.168.43.1&lt;/div&gt;" vertex="1">
+          <mxGeometry relative="1" x="0.1" as="geometry"><mxPoint x="-30" y="-20" as="offset" /></mxGeometry>
+        </mxCell>
+
+        <mxCell id="edge-sw-admin" edge="1" parent="1" source="sw-b4" target="pc-admin" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=none;endFill=0;fillColor=#d80073;strokeColor=#A20025;strokeWidth=2;">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="740" y="810" />
+              <mxPoint x="1260" y="810" />
             </Array>
           </mxGeometry>
         </mxCell>

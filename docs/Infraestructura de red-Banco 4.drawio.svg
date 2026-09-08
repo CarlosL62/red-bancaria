@@ -1,0 +1,549 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg xmlns="http://www.w3.org/2000/svg" style="background: #ffffff; background-color: #ffffff;" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" width="1400px" height="1150px" viewBox="0 0 1400 1150" content="&lt;mxfile host=&quot;app.diagrams.net&quot; agent=&quot;Antigravity&quot; version=&quot;21.0.0&quot; pages=&quot;1&quot;&gt;
+  &lt;diagram id=&quot;banco4-topology&quot; name=&quot;Banco 4&quot;&gt;
+    &lt;mxGraphModel dx=&quot;1600&quot; dy=&quot;1200&quot; grid=&quot;1&quot; gridSize=&quot;10&quot; guides=&quot;1&quot; tooltips=&quot;1&quot; connect=&quot;1&quot; arrows=&quot;1&quot; fold=&quot;1&quot; page=&quot;1&quot; pageScale=&quot;1&quot; pageWidth=&quot;1400&quot; pageHeight=&quot;1200&quot; background=&quot;#ffffff&quot; math=&quot;0&quot; shadow=&quot;0&quot;&gt;
+      &lt;root&gt;
+        &lt;mxCell id=&quot;0&quot; /&gt;
+        &lt;mxCell id=&quot;1&quot; parent=&quot;0&quot; /&gt;
+
+        &lt;!-- TITULO --&gt;
+        &lt;mxCell id=&quot;title&quot; parent=&quot;1&quot; style=&quot;text;strokeColor=none;fillColor=none;html=1;fontSize=20;fontStyle=1;verticalAlign=middle;align=center;autosizeText=1;&quot; value=&quot;Topología de Red&amp;lt;br&amp;gt;Banco 4 — Banco con Doble ISP y Anillo Interbancario&quot; vertex=&quot;1&quot;&gt;
+          &lt;mxGeometry height=&quot;60&quot; width=&quot;450&quot; x=&quot;475&quot; y=&quot;20&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+
+        &lt;!-- ==================== CAPA 1: ANILLO INTERBANCARIO ==================== --&gt;
+        
+        &lt;!-- Cloud Banco 3 --&gt;
+        &lt;mxCell id=&quot;cloud-b3&quot; parent=&quot;1&quot; style=&quot;image;aspect=fixed;perimeter=ellipsePerimeter;html=1;align=center;shadow=0;dashed=0;spacingTop=3;image=img/lib/active_directory/internet_cloud.svg;&quot; value=&quot;&quot; vertex=&quot;1&quot;&gt;
+          &lt;mxGeometry height=&quot;56.7&quot; width=&quot;90&quot; x=&quot;160&quot; y=&quot;140&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;lbl-cloud-b3&quot; parent=&quot;1&quot; style=&quot;text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;fontStyle=1;&quot; value=&quot;CLOUD-B3&amp;lt;div&amp;gt;(Banco 3 R-WAN)&amp;lt;/div&amp;gt;&quot; vertex=&quot;1&quot;&gt;
+          &lt;mxGeometry height=&quot;30&quot; width=&quot;120&quot; x=&quot;145&quot; y=&quot;205&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;ip-b3&quot; parent=&quot;1&quot; style=&quot;text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;&quot; value=&quot;IP: 10.0.0.9/30&amp;lt;div&amp;gt;eno1&amp;lt;/div&amp;gt;&quot; vertex=&quot;1&quot;&gt;
+          &lt;mxGeometry height=&quot;30&quot; width=&quot;100&quot; x=&quot;155&quot; y=&quot;235&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+
+        &lt;!-- Router INTERNET (Borde Banco 4) --&gt;
+        &lt;mxCell id=&quot;router-internet&quot; parent=&quot;1&quot; style=&quot;image;html=1;image=img/lib/clip_art/networking/Router_Icon_128x128.png;&quot; value=&quot;&quot; vertex=&quot;1&quot;&gt;
+          &lt;mxGeometry height=&quot;80&quot; width=&quot;80&quot; x=&quot;660&quot; y=&quot;130&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;lbl-router-internet&quot; parent=&quot;1&quot; style=&quot;text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;fontStyle=1;&quot; value=&quot;INTERNET&amp;lt;div&amp;gt;(Router Borde B4 - Alpine)&amp;lt;/div&amp;gt;&quot; vertex=&quot;1&quot;&gt;
+          &lt;mxGeometry height=&quot;30&quot; width=&quot;160&quot; x=&quot;620&quot; y=&quot;215&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+
+        &lt;!-- Cloud Banco 5 --&gt;
+        &lt;mxCell id=&quot;cloud-b5&quot; parent=&quot;1&quot; style=&quot;image;aspect=fixed;perimeter=ellipsePerimeter;html=1;align=center;shadow=0;dashed=0;spacingTop=3;image=img/lib/active_directory/internet_cloud.svg;&quot; value=&quot;&quot; vertex=&quot;1&quot;&gt;
+          &lt;mxGeometry height=&quot;56.7&quot; width=&quot;90&quot; x=&quot;1150&quot; y=&quot;140&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;lbl-cloud-b5&quot; parent=&quot;1&quot; style=&quot;text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;fontStyle=1;&quot; value=&quot;CLOUD-B5&amp;lt;div&amp;gt;(Banco 5 R-WAN)&amp;lt;/div&amp;gt;&quot; vertex=&quot;1&quot;&gt;
+          &lt;mxGeometry height=&quot;30&quot; width=&quot;120&quot; x=&quot;1135&quot; y=&quot;205&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;ip-b5&quot; parent=&quot;1&quot; style=&quot;text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;&quot; value=&quot;IP: 10.0.0.14/30&amp;lt;div&amp;gt;enxc0eac367f731&amp;lt;/div&amp;gt;&quot; vertex=&quot;1&quot;&gt;
+          &lt;mxGeometry height=&quot;30&quot; width=&quot;130&quot; x=&quot;1130&quot; y=&quot;235&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+
+        &lt;!-- Cloud Internet Real (Salida Externa NAT) --&gt;
+        &lt;mxCell id=&quot;cloud-real&quot; parent=&quot;1&quot; style=&quot;image;aspect=fixed;perimeter=ellipsePerimeter;html=1;align=center;shadow=0;dashed=0;spacingTop=3;image=img/lib/active_directory/internet_cloud.svg;&quot; value=&quot;&quot; vertex=&quot;1&quot;&gt;
+          &lt;mxGeometry height=&quot;50&quot; width=&quot;80&quot; x=&quot;660&quot; y=&quot;20&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;lbl-cloud-real&quot; parent=&quot;1&quot; style=&quot;text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;fontStyle=0;&quot; value=&quot;Internet Real&amp;lt;div&amp;gt;10.255.4.1/24&amp;lt;/div&amp;gt;&quot; vertex=&quot;1&quot;&gt;
+          &lt;mxGeometry height=&quot;25&quot; width=&quot;90&quot; x=&quot;745&quot; y=&quot;32.5&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+
+        &lt;!-- Enlace CLOUD-REAL &lt;-&gt; INTERNET --&gt;
+        &lt;mxCell id=&quot;edge-real-internet&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;cloud-real&quot; target=&quot;router-internet&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=none;endFill=0;&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;lbl-edge-real&quot; connectable=&quot;0&quot; parent=&quot;edge-real-internet&quot; style=&quot;edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];&quot; value=&quot;eth2: 10.255.4.2&quot; vertex=&quot;1&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; x=&quot;0.2&quot; y=&quot;1&quot; as=&quot;geometry&quot;&gt;&lt;mxPoint x=&quot;40&quot; as=&quot;offset&quot; /&gt;&lt;/mxGeometry&gt;
+        &lt;/mxCell&gt;
+
+        &lt;!-- Enlace B3 &lt;-&gt; INTERNET --&gt;
+        &lt;mxCell id=&quot;edge-b3-internet&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;cloud-b3&quot; target=&quot;router-internet&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=none;endFill=0;&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;lbl-edge-b3-1&quot; connectable=&quot;0&quot; parent=&quot;edge-b3-internet&quot; style=&quot;edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];&quot; value=&quot;eno1&quot; vertex=&quot;1&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; x=&quot;-0.7&quot; as=&quot;geometry&quot;&gt;&lt;mxPoint y=&quot;-12&quot; as=&quot;offset&quot; /&gt;&lt;/mxGeometry&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;lbl-edge-b3-2&quot; connectable=&quot;0&quot; parent=&quot;edge-b3-internet&quot; style=&quot;edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];&quot; value=&quot;eth3: 10.0.0.10&quot; vertex=&quot;1&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; x=&quot;0.7&quot; as=&quot;geometry&quot;&gt;&lt;mxPoint y=&quot;-12&quot; as=&quot;offset&quot; /&gt;&lt;/mxGeometry&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;box-subred-b3&quot; parent=&quot;1&quot; style=&quot;text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;fontStyle=1;&quot; value=&quot;SUBRED B3 ↔ BANCO 4&amp;lt;div&amp;gt;10.0.0.8/30&amp;lt;/div&amp;gt;&quot; vertex=&quot;1&quot;&gt;
+          &lt;mxGeometry height=&quot;30&quot; width=&quot;160&quot; x=&quot;370&quot; y=&quot;135&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+
+        &lt;!-- Enlace INTERNET &lt;-&gt; B5 --&gt;
+        &lt;mxCell id=&quot;edge-internet-b5&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;router-internet&quot; target=&quot;cloud-b5&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=none;endFill=0;&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;lbl-edge-b5-1&quot; connectable=&quot;0&quot; parent=&quot;edge-b5-internet&quot; style=&quot;edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];&quot; value=&quot;eth4: 10.0.0.13&quot; vertex=&quot;1&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; x=&quot;-0.7&quot; as=&quot;geometry&quot;&gt;&lt;mxPoint y=&quot;-12&quot; as=&quot;offset&quot; /&gt;&lt;/mxGeometry&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;lbl-edge-b5-2&quot; connectable=&quot;0&quot; parent=&quot;edge-b5-internet&quot; style=&quot;edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];&quot; value=&quot;enxc0eac367f731&quot; vertex=&quot;1&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; x=&quot;0.7&quot; as=&quot;geometry&quot;&gt;&lt;mxPoint y=&quot;-12&quot; as=&quot;offset&quot; /&gt;&lt;/mxGeometry&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;box-subred-b5&quot; parent=&quot;1&quot; style=&quot;text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;fontStyle=1;&quot; value=&quot;SUBRED BANCO 4 ↔ B5&amp;lt;div&amp;gt;10.0.0.12/30&amp;lt;/div&amp;gt;&quot; vertex=&quot;1&quot;&gt;
+          &lt;mxGeometry height=&quot;30&quot; width=&quot;160&quot; x=&quot;880&quot; y=&quot;135&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+
+
+        &lt;!-- ==================== CAPA 2: DOBLE ISP REDUNDANTE ==================== --&gt;
+
+        &lt;!-- ISP1 Router --&gt;
+        &lt;mxCell id=&quot;router-isp1&quot; parent=&quot;1&quot; style=&quot;image;html=1;image=img/lib/clip_art/networking/Router_Icon_128x128.png;&quot; value=&quot;&quot; vertex=&quot;1&quot;&gt;
+          &lt;mxGeometry height=&quot;80&quot; width=&quot;80&quot; x=&quot;430&quot; y=&quot;330&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;lbl-router-isp1&quot; parent=&quot;1&quot; style=&quot;text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;fontStyle=1;&quot; value=&quot;ISP1&amp;lt;div&amp;gt;(Cisco 7200)&amp;lt;/div&amp;gt;&quot; vertex=&quot;1&quot;&gt;
+          &lt;mxGeometry height=&quot;30&quot; width=&quot;90&quot; x=&quot;425&quot; y=&quot;415&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+
+        &lt;!-- ISP2 Router --&gt;
+        &lt;mxCell id=&quot;router-isp2&quot; parent=&quot;1&quot; style=&quot;image;html=1;image=img/lib/clip_art/networking/Router_Icon_128x128.png;&quot; value=&quot;&quot; vertex=&quot;1&quot;&gt;
+          &lt;mxGeometry height=&quot;80&quot; width=&quot;80&quot; x=&quot;890&quot; y=&quot;330&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;lbl-router-isp2&quot; parent=&quot;1&quot; style=&quot;text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;fontStyle=1;&quot; value=&quot;ISP2&amp;lt;div&amp;gt;(Cisco 7200)&amp;lt;/div&amp;gt;&quot; vertex=&quot;1&quot;&gt;
+          &lt;mxGeometry height=&quot;30&quot; width=&quot;90&quot; x=&quot;885&quot; y=&quot;415&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+
+        &lt;!-- Enlace INTERNET -&gt; ISP1 --&gt;
+        &lt;mxCell id=&quot;edge-internet-isp1&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;router-internet&quot; target=&quot;router-isp1&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=none;endFill=0;&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot;&gt;
+            &lt;Array as=&quot;points&quot;&gt;
+              &lt;mxPoint x=&quot;680&quot; y=&quot;270&quot; /&gt;
+              &lt;mxPoint x=&quot;470&quot; y=&quot;270&quot; /&gt;
+            &lt;/Array&gt;
+          &lt;/mxGeometry&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;lbl-int-isp1-1&quot; connectable=&quot;0&quot; parent=&quot;edge-internet-isp1&quot; style=&quot;edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];&quot; value=&quot;eth0: 100.64.1.2&quot; vertex=&quot;1&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; x=&quot;-0.6&quot; as=&quot;geometry&quot;&gt;&lt;mxPoint x=&quot;-15&quot; y=&quot;-12&quot; as=&quot;offset&quot; /&gt;&lt;/mxGeometry&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;lbl-int-isp1-2&quot; connectable=&quot;0&quot; parent=&quot;edge-internet-isp1&quot; style=&quot;edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];&quot; value=&quot;Fa0/0: 100.64.1.1&quot; vertex=&quot;1&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; x=&quot;0.7&quot; as=&quot;geometry&quot;&gt;&lt;mxPoint x=&quot;45&quot; as=&quot;offset&quot; /&gt;&lt;/mxGeometry&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;box-subred-isp1&quot; parent=&quot;1&quot; style=&quot;text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;fontStyle=1;&quot; value=&quot;SUBRED INTERNET ↔ ISP1&amp;lt;div&amp;gt;100.64.1.0/30&amp;lt;/div&amp;gt;&quot; vertex=&quot;1&quot;&gt;
+          &lt;mxGeometry height=&quot;30&quot; width=&quot;180&quot; x=&quot;490&quot; y=&quot;285&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+
+        &lt;!-- Enlace INTERNET -&gt; ISP2 --&gt;
+        &lt;mxCell id=&quot;edge-internet-isp2&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;router-internet&quot; target=&quot;router-isp2&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=none;endFill=0;&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot;&gt;
+            &lt;Array as=&quot;points&quot;&gt;
+              &lt;mxPoint x=&quot;720&quot; y=&quot;270&quot; /&gt;
+              &lt;mxPoint x=&quot;930&quot; y=&quot;270&quot; /&gt;
+            &lt;/Array&gt;
+          &lt;/mxGeometry&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;lbl-int-isp2-1&quot; connectable=&quot;0&quot; parent=&quot;edge-internet-isp2&quot; style=&quot;edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];&quot; value=&quot;eth1: 100.64.2.2&quot; vertex=&quot;1&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; x=&quot;-0.6&quot; as=&quot;geometry&quot;&gt;&lt;mxPoint x=&quot;15&quot; y=&quot;-12&quot; as=&quot;offset&quot; /&gt;&lt;/mxGeometry&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;lbl-int-isp2-2&quot; connectable=&quot;0&quot; parent=&quot;edge-internet-isp2&quot; style=&quot;edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];&quot; value=&quot;Fa0/0: 100.64.2.1&quot; vertex=&quot;1&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; x=&quot;0.7&quot; as=&quot;geometry&quot;&gt;&lt;mxPoint x=&quot;-45&quot; as=&quot;offset&quot; /&gt;&lt;/mxGeometry&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;box-subred-isp2&quot; parent=&quot;1&quot; style=&quot;text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;fontStyle=1;&quot; value=&quot;SUBRED INTERNET ↔ ISP2&amp;lt;div&amp;gt;100.64.2.0/30&amp;lt;/div&amp;gt;&quot; vertex=&quot;1&quot;&gt;
+          &lt;mxGeometry height=&quot;30&quot; width=&quot;180&quot; x=&quot;730&quot; y=&quot;285&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+
+
+        &lt;!-- ==================== CAPA 3: PERIMETRO FIREWALL ==================== --&gt;
+
+        &lt;!-- Firewall FW-BANCO4 --&gt;
+        &lt;mxCell id=&quot;fw-banco4&quot; parent=&quot;1&quot; style=&quot;image;aspect=fixed;perimeter=ellipsePerimeter;html=1;align=center;shadow=0;dashed=0;spacingTop=3;image=img/lib/active_directory/firewall.svg;&quot; value=&quot;&quot; vertex=&quot;1&quot;&gt;
+          &lt;mxGeometry height=&quot;100&quot; width=&quot;61&quot; x=&quot;670&quot; y=&quot;490&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;lbl-fw-banco4&quot; parent=&quot;1&quot; style=&quot;text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;fontStyle=1;&quot; value=&quot;FW-BANCO4&amp;lt;div&amp;gt;(Alpine Linux nftables)&amp;lt;/div&amp;gt;&amp;lt;div&amp;gt;Script Failover ISP1 ↔ ISP2&amp;lt;/div&amp;gt;&quot; vertex=&quot;1&quot;&gt;
+          &lt;mxGeometry height=&quot;45&quot; width=&quot;180&quot; x=&quot;610.5&quot; y=&quot;595&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+
+        &lt;!-- Enlace ISP1 -&gt; FW --&gt;
+        &lt;mxCell id=&quot;edge-isp1-fw&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;router-isp1&quot; target=&quot;fw-banco4&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=none;endFill=0;strokeColor=#b85450;&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot;&gt;
+            &lt;Array as=&quot;points&quot;&gt;
+              &lt;mxPoint x=&quot;470&quot; y=&quot;470&quot; /&gt;
+              &lt;mxPoint x=&quot;680&quot; y=&quot;470&quot; /&gt;
+            &lt;/Array&gt;
+          &lt;/mxGeometry&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;lbl-isp1-fw-1&quot; connectable=&quot;0&quot; parent=&quot;edge-isp1-fw&quot; style=&quot;edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];&quot; value=&quot;Fa1/0: 200.4.1.1&quot; vertex=&quot;1&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; x=&quot;-0.7&quot; as=&quot;geometry&quot;&gt;&lt;mxPoint x=&quot;-35&quot; as=&quot;offset&quot; /&gt;&lt;/mxGeometry&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;lbl-isp1-fw-2&quot; connectable=&quot;0&quot; parent=&quot;edge-isp1-fw&quot; style=&quot;edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];&quot; value=&quot;eth0: 200.4.1.2 (Activo)&quot; vertex=&quot;1&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; x=&quot;0.6&quot; as=&quot;geometry&quot;&gt;&lt;mxPoint x=&quot;-45&quot; as=&quot;offset&quot; /&gt;&lt;/mxGeometry&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;box-subred-fw1&quot; parent=&quot;1&quot; style=&quot;text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;fontStyle=1;&quot; value=&quot;SUBRED ISP1 ↔ FW&amp;lt;div&amp;gt;200.4.1.0/30&amp;lt;/div&amp;gt;&quot; vertex=&quot;1&quot;&gt;
+          &lt;mxGeometry height=&quot;30&quot; width=&quot;150&quot; x=&quot;510&quot; y=&quot;440&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+
+        &lt;!-- Enlace ISP2 -&gt; FW --&gt;
+        &lt;mxCell id=&quot;edge-isp2-fw&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;router-isp2&quot; target=&quot;fw-banco4&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=none;endFill=0;dashed=1;strokeColor=#b85450;&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot;&gt;
+            &lt;Array as=&quot;points&quot;&gt;
+              &lt;mxPoint x=&quot;930&quot; y=&quot;470&quot; /&gt;
+              &lt;mxPoint x=&quot;720&quot; y=&quot;470&quot; /&gt;
+            &lt;/Array&gt;
+          &lt;/mxGeometry&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;lbl-isp2-fw-1&quot; connectable=&quot;0&quot; parent=&quot;edge-isp2-fw&quot; style=&quot;edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];&quot; value=&quot;Fa1/0: 200.4.2.1&quot; vertex=&quot;1&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; x=&quot;-0.7&quot; as=&quot;geometry&quot;&gt;&lt;mxPoint x=&quot;35&quot; as=&quot;offset&quot; /&gt;&lt;/mxGeometry&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;lbl-isp2-fw-2&quot; connectable=&quot;0&quot; parent=&quot;edge-isp2-fw&quot; style=&quot;edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];&quot; value=&quot;eth1: 200.4.2.2 (Backup)&quot; vertex=&quot;1&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; x=&quot;0.6&quot; as=&quot;geometry&quot;&gt;&lt;mxPoint x=&quot;50&quot; as=&quot;offset&quot; /&gt;&lt;/mxGeometry&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;box-subred-fw2&quot; parent=&quot;1&quot; style=&quot;text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;fontStyle=1;&quot; value=&quot;SUBRED ISP2 ↔ FW&amp;lt;div&amp;gt;200.4.2.0/30 (Flotante)&amp;lt;/div&amp;gt;&quot; vertex=&quot;1&quot;&gt;
+          &lt;mxGeometry height=&quot;30&quot; width=&quot;170&quot; x=&quot;750&quot; y=&quot;440&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+
+
+        &lt;!-- ==================== CAPA 4: CORE SWITCHING ==================== --&gt;
+
+        &lt;!-- Switch SW-B4 --&gt;
+        &lt;mxCell id=&quot;sw-b4&quot; parent=&quot;1&quot; style=&quot;strokeColor=#ffffff;sketch=0;html=1;pointerEvents=1;dashed=0;fillColor=#036897;strokeWidth=2;verticalLabelPosition=bottom;verticalAlign=top;align=center;outlineConnect=0;shape=mxgraph.cisco.switches.workgroup_switch;strokeColor2=#FFFFFF;&quot; value=&quot;&quot; vertex=&quot;1&quot;&gt;
+          &lt;mxGeometry height=&quot;50&quot; width=&quot;101&quot; x=&quot;650&quot; y=&quot;690&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;lbl-sw-b4&quot; parent=&quot;1&quot; style=&quot;text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;fontStyle=1;&quot; value=&quot;SW-B4&amp;lt;div&amp;gt;(Open vSwitch Core)&amp;lt;/div&amp;gt;&quot; vertex=&quot;1&quot;&gt;
+          &lt;mxGeometry height=&quot;30&quot; width=&quot;130&quot; x=&quot;635.5&quot; y=&quot;745&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+
+        &lt;!-- Enlace FW -&gt; Switch (Troncal 802.1Q) --&gt;
+        &lt;mxCell id=&quot;edge-fw-sw&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;fw-banco4&quot; target=&quot;sw-b4&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=none;endFill=0;strokeWidth=3;&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;lbl-fw-sw-1&quot; connectable=&quot;0&quot; parent=&quot;edge-fw-sw&quot; style=&quot;edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];&quot; value=&quot;eth2 (Trunk)&quot; vertex=&quot;1&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; x=&quot;-0.6&quot; as=&quot;geometry&quot;&gt;&lt;mxPoint x=&quot;38&quot; as=&quot;offset&quot; /&gt;&lt;/mxGeometry&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;box-trunk&quot; parent=&quot;1&quot; style=&quot;text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;fontStyle=1;&quot; value=&quot;Troncal 802.1Q&amp;lt;div&amp;gt;Subinterfaces: eth2.10, eth2.20, eth2.30&amp;lt;/div&amp;gt;&quot; vertex=&quot;1&quot;&gt;
+          &lt;mxGeometry height=&quot;30&quot; width=&quot;230&quot; x=&quot;710&quot; y=&quot;655&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+
+
+        &lt;!-- ==================== CAPA 5: SEGMENTACION VLANS ==================== --&gt;
+
+        &lt;!-- VLAN 10 (Verde) --&gt;
+        &lt;mxCell id=&quot;pc-usuario&quot; parent=&quot;1&quot; style=&quot;image;html=1;image=img/lib/clip_art/computers/Laptop_128x128.png;&quot; value=&quot;&quot; vertex=&quot;1&quot;&gt;
+          &lt;mxGeometry height=&quot;80&quot; width=&quot;80&quot; x=&quot;220&quot; y=&quot;880&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;lbl-pc-usuario&quot; parent=&quot;1&quot; style=&quot;text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;fontStyle=1;&quot; value=&quot;PC-USUARIO&amp;lt;div&amp;gt;IP: 192.168.41.10/24&amp;lt;/div&amp;gt;&amp;lt;div&amp;gt;GW: 192.168.41.1 (FW eth2.10)&amp;lt;/div&amp;gt;&quot; vertex=&quot;1&quot;&gt;
+          &lt;mxGeometry height=&quot;45&quot; width=&quot;180&quot; x=&quot;170&quot; y=&quot;970&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+
+        &lt;!-- Enlace SW -&gt; VLAN 10 --&gt;
+        &lt;mxCell id=&quot;edge-vlan10&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;sw-b4&quot; target=&quot;pc-usuario&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=none;endFill=0;fillColor=#008a00;strokeColor=#005700;strokeWidth=2;&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot;&gt;
+            &lt;Array as=&quot;points&quot;&gt;
+              &lt;mxPoint x=&quot;660&quot; y=&quot;810&quot; /&gt;
+              &lt;mxPoint x=&quot;260&quot; y=&quot;810&quot; /&gt;
+            &lt;/Array&gt;
+          &lt;/mxGeometry&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;lbl-vlan10&quot; connectable=&quot;0&quot; parent=&quot;edge-vlan10&quot; style=&quot;edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];&quot; value=&quot;VLAN 10 - Clientes / Usuarios&amp;lt;div&amp;gt;192.168.41.0/24&amp;lt;/div&amp;gt;&amp;lt;div&amp;gt;GW: 192.168.41.1&amp;lt;/div&amp;gt;&quot; vertex=&quot;1&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; x=&quot;0.1&quot; as=&quot;geometry&quot;&gt;&lt;mxPoint x=&quot;-30&quot; y=&quot;-20&quot; as=&quot;offset&quot; /&gt;&lt;/mxGeometry&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;lbl-vlan10-eth&quot; connectable=&quot;0&quot; parent=&quot;edge-vlan10&quot; style=&quot;edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];&quot; value=&quot;eth0&quot; vertex=&quot;1&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; x=&quot;0.85&quot; as=&quot;geometry&quot;&gt;&lt;mxPoint y=&quot;-10&quot; as=&quot;offset&quot; /&gt;&lt;/mxGeometry&gt;
+        &lt;/mxCell&gt;
+
+
+        &lt;!-- VLAN 20 (Azul) - Banca Web &amp; DB --&gt;
+        &lt;mxCell id=&quot;srv-app&quot; parent=&quot;1&quot; style=&quot;image;html=1;image=img/lib/clip_art/computers/Server_128x128.png;&quot; value=&quot;&quot; vertex=&quot;1&quot;&gt;
+          &lt;mxGeometry height=&quot;80&quot; width=&quot;80&quot; x=&quot;530&quot; y=&quot;880&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;lbl-srv-app&quot; parent=&quot;1&quot; style=&quot;text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;fontStyle=1;&quot; value=&quot;SRV-BANCA-APP-1&amp;lt;div&amp;gt;IP: 192.168.42.20/24&amp;lt;/div&amp;gt;&amp;lt;div&amp;gt;Puerto: 5000 (Flask)&amp;lt;/div&amp;gt;&amp;lt;div&amp;gt;GW: 192.168.42.1&amp;lt;/div&amp;gt;&quot; vertex=&quot;1&quot;&gt;
+          &lt;mxGeometry height=&quot;55&quot; width=&quot;160&quot; x=&quot;490&quot; y=&quot;970&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+
+        &lt;mxCell id=&quot;srv-db&quot; parent=&quot;1&quot; style=&quot;image;html=1;image=img/lib/clip_art/computers/Database_128x128.png;&quot; value=&quot;&quot; vertex=&quot;1&quot;&gt;
+          &lt;mxGeometry height=&quot;80&quot; width=&quot;80&quot; x=&quot;740&quot; y=&quot;880&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;lbl-srv-db&quot; parent=&quot;1&quot; style=&quot;text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;fontStyle=1;&quot; value=&quot;SRV-BANCA-DB-1&amp;lt;div&amp;gt;IP: 192.168.42.10/24&amp;lt;/div&amp;gt;&amp;lt;div&amp;gt;PostgreSQL: 5432&amp;lt;/div&amp;gt;&amp;lt;div&amp;gt;GW: 192.168.42.1&amp;lt;/div&amp;gt;&quot; vertex=&quot;1&quot;&gt;
+          &lt;mxGeometry height=&quot;55&quot; width=&quot;160&quot; x=&quot;700&quot; y=&quot;970&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+
+        &lt;!-- Enlace App &lt;-&gt; DB --&gt;
+        &lt;mxCell id=&quot;edge-app-db&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;srv-app&quot; target=&quot;srv-db&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=none;endFill=0;dashed=1;strokeColor=#1ba1e2;strokeWidth=1.5;&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;lbl-app-db&quot; connectable=&quot;0&quot; parent=&quot;edge-app-db&quot; style=&quot;edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];&quot; value=&quot;SQL: 5432&quot; vertex=&quot;1&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot;&gt;&lt;mxPoint y=&quot;-12&quot; as=&quot;offset&quot; /&gt;&lt;/mxGeometry&gt;
+        &lt;/mxCell&gt;
+
+        &lt;!-- Enlace SW -&gt; VLAN 20 --&gt;
+        &lt;mxCell id=&quot;edge-vlan20&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;sw-b4&quot; target=&quot;srv-app&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=none;endFill=0;fillColor=#0050ef;strokeColor=#001DBC;strokeWidth=2;&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot;&gt;
+            &lt;Array as=&quot;points&quot;&gt;
+              &lt;mxPoint x=&quot;700&quot; y=&quot;810&quot; /&gt;
+              &lt;mxPoint x=&quot;570&quot; y=&quot;810&quot; /&gt;
+            &lt;/Array&gt;
+          &lt;/mxGeometry&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;lbl-vlan20&quot; connectable=&quot;0&quot; parent=&quot;edge-vlan20&quot; style=&quot;edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];&quot; value=&quot;VLAN 20 - Banca Web &amp;amp; DB&amp;lt;div&amp;gt;192.168.42.0/24&amp;lt;/div&amp;gt;&amp;lt;div&amp;gt;GW: 192.168.42.1&amp;lt;/div&amp;gt;&quot; vertex=&quot;1&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; x=&quot;0.05&quot; as=&quot;geometry&quot;&gt;&lt;mxPoint x=&quot;-35&quot; y=&quot;-20&quot; as=&quot;offset&quot; /&gt;&lt;/mxGeometry&gt;
+        &lt;/mxCell&gt;
+
+
+        &lt;!-- VLAN 30 (Fucsia / Naranja) - DMZ &amp; Blacklist --&gt;
+        &lt;mxCell id=&quot;srv-archivos&quot; parent=&quot;1&quot; style=&quot;image;html=1;image=img/lib/clip_art/computers/Server_128x128.png;&quot; value=&quot;&quot; vertex=&quot;1&quot;&gt;
+          &lt;mxGeometry height=&quot;80&quot; width=&quot;80&quot; x=&quot;1010&quot; y=&quot;880&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;lbl-srv-archivos&quot; parent=&quot;1&quot; style=&quot;text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;fontStyle=1;&quot; value=&quot;SRV-ARCHIVOS&amp;lt;div&amp;gt;(Blacklist REST API)&amp;lt;/div&amp;gt;&amp;lt;div&amp;gt;IP: 192.168.43.20/24&amp;lt;/div&amp;gt;&amp;lt;div&amp;gt;Puerto: 8080 (HTTP)&amp;lt;/div&amp;gt;&amp;lt;div&amp;gt;GW: 192.168.43.1&amp;lt;/div&amp;gt;&quot; vertex=&quot;1&quot;&gt;
+          &lt;mxGeometry height=&quot;70&quot; width=&quot;160&quot; x=&quot;970&quot; y=&quot;970&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+
+        &lt;mxCell id=&quot;pc-admin&quot; parent=&quot;1&quot; style=&quot;image;html=1;image=img/lib/clip_art/computers/Laptop_128x128.png;&quot; value=&quot;&quot; vertex=&quot;1&quot;&gt;
+          &lt;mxGeometry height=&quot;80&quot; width=&quot;80&quot; x=&quot;1220&quot; y=&quot;880&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;lbl-pc-admin&quot; parent=&quot;1&quot; style=&quot;text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;fontStyle=1;&quot; value=&quot;PC-ADMIN&amp;lt;div&amp;gt;IP: 192.168.43.10/24&amp;lt;/div&amp;gt;&amp;lt;div&amp;gt;GW: 192.168.43.1&amp;lt;/div&amp;gt;&amp;lt;div&amp;gt;(Gestión y SSH)&amp;lt;/div&amp;gt;&quot; vertex=&quot;1&quot;&gt;
+          &lt;mxGeometry height=&quot;55&quot; width=&quot;150&quot; x=&quot;1185&quot; y=&quot;970&quot; as=&quot;geometry&quot; /&gt;
+        &lt;/mxCell&gt;
+
+        &lt;!-- Enlace SW -&gt; VLAN 30 --&gt;
+        &lt;mxCell id=&quot;edge-vlan30&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;sw-b4&quot; target=&quot;srv-archivos&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=none;endFill=0;fillColor=#d80073;strokeColor=#A20025;strokeWidth=2;&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot;&gt;
+            &lt;Array as=&quot;points&quot;&gt;
+              &lt;mxPoint x=&quot;740&quot; y=&quot;810&quot; /&gt;
+              &lt;mxPoint x=&quot;1050&quot; y=&quot;810&quot; /&gt;
+            &lt;/Array&gt;
+          &lt;/mxGeometry&gt;
+        &lt;/mxCell&gt;
+        &lt;mxCell id=&quot;lbl-vlan30&quot; connectable=&quot;0&quot; parent=&quot;edge-vlan30&quot; style=&quot;edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];&quot; value=&quot;VLAN 30 - DMZ &amp;amp; Blacklist&amp;lt;div&amp;gt;192.168.43.0/24&amp;lt;/div&amp;gt;&amp;lt;div&amp;gt;GW: 192.168.43.1&amp;lt;/div&amp;gt;&quot; vertex=&quot;1&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; x=&quot;0.1&quot; as=&quot;geometry&quot;&gt;&lt;mxPoint x=&quot;-30&quot; y=&quot;-20&quot; as=&quot;offset&quot; /&gt;&lt;/mxGeometry&gt;
+        &lt;/mxCell&gt;
+
+        &lt;mxCell id=&quot;edge-sw-admin&quot; edge=&quot;1&quot; parent=&quot;1&quot; source=&quot;sw-b4&quot; target=&quot;pc-admin&quot; style=&quot;edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=none;endFill=0;fillColor=#d80073;strokeColor=#A20025;strokeWidth=2;&quot;&gt;
+          &lt;mxGeometry relative=&quot;1&quot; as=&quot;geometry&quot;&gt;
+            &lt;Array as=&quot;points&quot;&gt;
+              &lt;mxPoint x=&quot;740&quot; y=&quot;810&quot; /&gt;
+              &lt;mxPoint x=&quot;1260&quot; y=&quot;810&quot; /&gt;
+            &lt;/Array&gt;
+          &lt;/mxGeometry&gt;
+        &lt;/mxCell&gt;
+
+      &lt;/root&gt;
+    &lt;/mxGraphModel&gt;
+  &lt;/diagram&gt;
+&lt;/mxfile&gt;">
+  <defs>
+    <!-- Cisco Style Router Icon -->
+    <g id="icon-router">
+      <circle cx="40" cy="40" r="38" fill="#0284c7" stroke="#0369a1" stroke-width="2"/>
+      <!-- Arrows on router -->
+      <path d="M 22 28 L 58 28 M 50 22 L 58 28 L 50 34" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      <path d="M 58 52 L 22 52 M 30 46 L 22 52 L 30 58" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      <path d="M 28 22 L 28 58 M 22 50 L 28 58 L 34 50" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      <path d="M 52 58 L 52 22 M 46 30 L 52 22 L 58 30" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    </g>
+
+    <!-- Cisco Style Switch Icon -->
+    <g id="icon-switch">
+      <rect x="0" y="0" width="100" height="50" rx="5" fill="#036897" stroke="#ffffff" stroke-width="2"/>
+      <!-- Arrows on switch -->
+      <path d="M 20 18 L 80 18 M 70 12 L 80 18 L 70 24" stroke="#ffffff" stroke-width="2" fill="none"/>
+      <path d="M 80 32 L 20 32 M 30 26 L 20 32 L 30 38" stroke="#ffffff" stroke-width="2" fill="none"/>
+    </g>
+
+    <!-- Firewall Icon -->
+    <g id="icon-firewall">
+      <rect x="5" y="0" width="50" height="90" rx="6" fill="#dc2626" stroke="#991b1b" stroke-width="2"/>
+      <!-- Brick pattern -->
+      <line x1="5" y1="20" x2="55" y2="20" stroke="#ffffff" stroke-width="2"/>
+      <line x1="5" y1="40" x2="55" y2="40" stroke="#ffffff" stroke-width="2"/>
+      <line x1="5" y1="60" x2="55" y2="60" stroke="#ffffff" stroke-width="2"/>
+      <line x1="5" y1="80" x2="55" y2="80" stroke="#ffffff" stroke-width="2"/>
+      <line x1="30" y1="0" x2="30" y2="20" stroke="#ffffff" stroke-width="2"/>
+      <line x1="18" y1="20" x2="18" y2="40" stroke="#ffffff" stroke-width="2"/>
+      <line x1="42" y1="20" x2="42" y2="40" stroke="#ffffff" stroke-width="2"/>
+      <line x1="30" y1="40" x2="30" y2="60" stroke="#ffffff" stroke-width="2"/>
+      <line x1="18" y1="60" x2="18" y2="80" stroke="#ffffff" stroke-width="2"/>
+      <line x1="42" y1="60" x2="42" y2="80" stroke="#ffffff" stroke-width="2"/>
+      <line x1="30" y1="80" x2="30" y2="90" stroke="#ffffff" stroke-width="2"/>
+    </g>
+
+    <!-- Cloud Icon -->
+    <g id="icon-cloud">
+      <path d="M 25 45 A 20 20 0 0 1 50 20 A 25 25 0 0 1 95 25 A 20 20 0 0 1 100 45 A 15 15 0 0 1 85 60 L 25 60 A 15 15 0 0 1 25 45 Z" fill="#e0f2fe" stroke="#0284c7" stroke-width="2"/>
+    </g>
+
+    <!-- Computer / Laptop Icon -->
+    <g id="icon-laptop">
+      <rect x="15" y="15" width="50" height="35" rx="3" fill="#334155" stroke="#0f172a" stroke-width="2"/>
+      <rect x="19" y="19" width="42" height="27" fill="#0284c7"/>
+      <path d="M 5 55 L 75 55 L 70 62 L 10 62 Z" fill="#64748b" stroke="#0f172a" stroke-width="1.5"/>
+    </g>
+
+    <!-- Server Icon -->
+    <g id="icon-server">
+      <rect x="15" y="10" width="50" height="65" rx="5" fill="#1e293b" stroke="#0f172a" stroke-width="2"/>
+      <rect x="22" y="18" width="36" height="8" rx="2" fill="#334155"/>
+      <rect x="22" y="32" width="36" height="8" rx="2" fill="#334155"/>
+      <rect x="22" y="46" width="36" height="8" rx="2" fill="#334155"/>
+      <circle cx="27" cy="62" r="2.5" fill="#22c55e"/>
+      <circle cx="35" cy="62" r="2.5" fill="#38bdf8"/>
+    </g>
+  </defs>
+
+  <g style="font-family: Arial, Helvetica, sans-serif;">
+    <!-- TITULO -->
+    <text x="700" y="40" text-anchor="middle" font-size="20" font-weight="bold" fill="#000000">Topología de Red</text>
+    <text x="700" y="65" text-anchor="middle" font-size="18" font-weight="bold" fill="#1e293b">Banco 4 — BANCO CON DOBLE ISP</text>
+
+    <!-- ================= CONEXIONES Y LINEAS ================= -->
+
+    <!-- Cloud Real <-> INTERNET -->
+    <line x1="700" y1="75" x2="700" y2="130" stroke="#000000" stroke-width="1.5"/>
+    <text x="708" y="105" font-size="11" fill="#334155">eth2: 10.255.4.2</text>
+
+    <!-- B3 <-> INTERNET -->
+    <line x1="250" y1="170" x2="660" y2="170" stroke="#000000" stroke-width="1.5"/>
+    <text x="260" y="162" font-size="11" fill="#000000">eno1</text>
+    <text x="565" y="162" font-size="11" fill="#000000">eth3: 10.0.0.10</text>
+    <text x="455" y="155" text-anchor="middle" font-size="12" font-weight="bold" fill="#000000">SUBRED B3 ↔ BANCO 4</text>
+    <text x="455" y="173" text-anchor="middle" font-size="12" font-weight="bold" fill="#000000">10.0.0.8/30</text>
+
+    <!-- INTERNET <-> B5 -->
+    <line x1="740" y1="170" x2="1150" y2="170" stroke="#000000" stroke-width="1.5"/>
+    <text x="755" y="162" font-size="11" fill="#000000">eth4: 10.0.0.13</text>
+    <text x="1050" y="162" font-size="11" fill="#000000">enxc0eac367f731</text>
+    <text x="955" y="155" text-anchor="middle" font-size="12" font-weight="bold" fill="#000000">SUBRED BANCO 4 ↔ B5</text>
+    <text x="955" y="173" text-anchor="middle" font-size="12" font-weight="bold" fill="#000000">10.0.0.12/30</text>
+
+    <!-- INTERNET -> ISP1 -->
+    <path d="M 680 210 L 680 270 L 470 270 L 470 330" fill="none" stroke="#000000" stroke-width="1.5"/>
+    <text x="615" y="262" font-size="11" fill="#000000">eth0: 100.64.1.2</text>
+    <text x="478" y="315" font-size="11" fill="#000000">Fa0/0: 100.64.1.1</text>
+    <text x="575" y="285" text-anchor="middle" font-size="12" font-weight="bold" fill="#000000">SUBRED INTERNET ↔ ISP1</text>
+    <text x="575" y="302" text-anchor="middle" font-size="12" font-weight="bold" fill="#000000">100.64.1.0/30</text>
+
+    <!-- INTERNET -> ISP2 -->
+    <path d="M 720 210 L 720 270 L 930 270 L 930 330" fill="none" stroke="#000000" stroke-width="1.5"/>
+    <text x="730" y="262" font-size="11" fill="#000000">eth1: 100.64.2.2</text>
+    <text x="938" y="315" font-size="11" fill="#000000">Fa0/0: 100.64.2.1</text>
+    <text x="825" y="285" text-anchor="middle" font-size="12" font-weight="bold" fill="#000000">SUBRED INTERNET ↔ ISP2</text>
+    <text x="825" y="302" text-anchor="middle" font-size="12" font-weight="bold" fill="#000000">100.64.2.0/30</text>
+
+    <!-- ISP1 -> FW-BANCO4 -->
+    <path d="M 470 410 L 470 470 L 680 470 L 680 490" fill="none" stroke="#b85450" stroke-width="2"/>
+    <text x="478" y="435" font-size="11" fill="#000000">Fa1/0: 200.4.1.1</text>
+    <text x="570" y="485" font-size="11" fill="#000000">eth0: 200.4.1.2 (Activo)</text>
+    <text x="575" y="455" text-anchor="middle" font-size="12" font-weight="bold" fill="#000000">SUBRED ISP1 ↔ FW-BANCO4</text>
+    <text x="575" y="470" text-anchor="middle" font-size="12" font-weight="bold" fill="#000000">200.4.1.0/30</text>
+
+    <!-- ISP2 -> FW-BANCO4 -->
+    <path d="M 930 410 L 930 470 L 720 470 L 720 490" fill="none" stroke="#b85450" stroke-width="2" stroke-dasharray="5 3"/>
+    <text x="938" y="435" font-size="11" fill="#000000">Fa1/0: 200.4.2.1</text>
+    <text x="730" y="485" font-size="11" fill="#000000">eth1: 200.4.2.2 (Backup)</text>
+    <text x="825" y="455" text-anchor="middle" font-size="12" font-weight="bold" fill="#000000">SUBRED ISP2 ↔ FW-BANCO4</text>
+    <text x="825" y="470" text-anchor="middle" font-size="12" font-weight="bold" fill="#000000">200.4.2.0/30 (Flotante)</text>
+
+    <!-- FW-BANCO4 -> SW-B4 (Troncal) -->
+    <line x1="700" y1="590" x2="700" y2="690" stroke="#000000" stroke-width="3.5"/>
+    <text x="710" y="635" font-size="11" font-weight="bold" fill="#000000">eth2 (Troncal 802.1Q)</text>
+    <text x="710" y="655" font-size="11" fill="#334155">Subinterfaces: eth2.10, eth2.20, eth2.30</text>
+
+    <!-- SW-B4 -> VLAN 10 (Verde) -->
+    <path d="M 660 740 L 660 810 L 260 810 L 260 880" fill="none" stroke="#008a00" stroke-width="2.5"/>
+    <rect x="350" y="785" width="210" height="45" rx="4" fill="#ffffff" stroke="#008a00" stroke-width="1"/>
+    <text x="455" y="800" text-anchor="middle" font-size="11" font-weight="bold" fill="#008a00">VLAN 10 - Clientes / Usuarios</text>
+    <text x="455" y="815" text-anchor="middle" font-size="11" fill="#000000">192.168.41.0/24 | GW: 192.168.41.1</text>
+    <text x="268" y="865" font-size="11" fill="#000000">eth0</text>
+
+    <!-- SW-B4 -> VLAN 20 (Azul) -->
+    <path d="M 690 740 L 690 810 L 570 810 L 570 880" fill="none" stroke="#0050ef" stroke-width="2.5"/>
+    <rect x="595" y="830" width="190" height="45" rx="4" fill="#ffffff" stroke="#0050ef" stroke-width="1"/>
+    <text x="690" y="845" text-anchor="middle" font-size="11" font-weight="bold" fill="#0050ef">VLAN 20 - Banca Web &amp; DB</text>
+    <text x="690" y="860" text-anchor="middle" font-size="11" fill="#000000">192.168.42.0/24 | GW: 192.168.42.1</text>
+
+    <!-- App <-> DB -->
+    <line x1="610" y1="920" x2="740" y2="920" stroke="#0050ef" stroke-width="1.5" stroke-dasharray="4 3"/>
+    <text x="675" y="912" text-anchor="middle" font-size="10" fill="#0050ef">SQL: 5432</text>
+
+    <!-- SW-B4 -> VLAN 30 (Fucsia/Naranja) -->
+    <path d="M 720 740 L 720 810 L 1050 810 L 1050 880" fill="none" stroke="#d80073" stroke-width="2.5"/>
+    <path d="M 1050 810 L 1260 810 L 1260 880" fill="none" stroke="#d80073" stroke-width="2.5"/>
+    <rect x="845" y="785" width="210" height="45" rx="4" fill="#ffffff" stroke="#d80073" stroke-width="1"/>
+    <text x="950" y="800" text-anchor="middle" font-size="11" font-weight="bold" fill="#d80073">VLAN 30 - DMZ &amp; Servicios</text>
+    <text x="950" y="815" text-anchor="middle" font-size="11" fill="#000000">192.168.43.0/24 | GW: 192.168.43.1</text>
+
+
+    <!-- ================= NODOS E ICONOS ================= -->
+
+    <!-- Cloud Real -->
+    <use href="#icon-cloud" x="650" y="15"/>
+    <text x="700" y="68" text-anchor="middle" font-size="11" font-weight="bold" fill="#0369a1">Internet Real</text>
+
+    <!-- Cloud B3 -->
+    <use href="#icon-cloud" x="155" y="135"/>
+    <text x="205" y="215" text-anchor="middle" font-size="12" font-weight="bold" fill="#000000">CLOUD-B3</text>
+    <text x="205" y="230" text-anchor="middle" font-size="11" fill="#334155">(Banco 3 R-WAN)</text>
+    <text x="205" y="248" text-anchor="middle" font-size="11" fill="#0284c7">IP: 10.0.0.9/30</text>
+    <text x="205" y="263" text-anchor="middle" font-size="10" fill="#64748b">Interfaz: eno1</text>
+
+    <!-- Router INTERNET -->
+    <use href="#icon-router" x="660" y="130"/>
+    <text x="700" y="230" text-anchor="middle" font-size="13" font-weight="bold" fill="#000000">INTERNET</text>
+    <text x="700" y="246" text-anchor="middle" font-size="11" fill="#334155">Router Borde B4 (Alpine)</text>
+
+    <!-- Cloud B5 -->
+    <use href="#icon-cloud" x="1145" y="135"/>
+    <text x="1195" y="215" text-anchor="middle" font-size="12" font-weight="bold" fill="#000000">CLOUD-B5</text>
+    <text x="1195" y="230" text-anchor="middle" font-size="11" fill="#334155">(Banco 5 R-WAN)</text>
+    <text x="1195" y="248" text-anchor="middle" font-size="11" fill="#0284c7">IP: 10.0.0.14/30</text>
+    <text x="1195" y="263" text-anchor="middle" font-size="10" fill="#64748b">enxc0eac367f731</text>
+
+    <!-- ISP 1 -->
+    <use href="#icon-router" x="430" y="330"/>
+    <text x="470" y="430" text-anchor="middle" font-size="13" font-weight="bold" fill="#000000">ISP1</text>
+    <text x="470" y="446" text-anchor="middle" font-size="11" fill="#334155">Cisco 7200</text>
+
+    <!-- ISP 2 -->
+    <use href="#icon-router" x="890" y="330"/>
+    <text x="930" y="430" text-anchor="middle" font-size="13" font-weight="bold" fill="#000000">ISP2</text>
+    <text x="930" y="446" text-anchor="middle" font-size="11" fill="#334155">Cisco 7200</text>
+
+    <!-- Firewall FW-BANCO4 -->
+    <use href="#icon-firewall" x="670" y="490"/>
+    <text x="700" y="605" text-anchor="middle" font-size="13" font-weight="bold" fill="#000000">FW-BANCO4</text>
+    <text x="700" y="620" text-anchor="middle" font-size="11" fill="#334155">Alpine Linux (nftables)</text>
+    <text x="700" y="635" text-anchor="middle" font-size="10" fill="#b91c1c">Failover ISP1 ↔ ISP2</text>
+
+    <!-- Switch SW-B4 -->
+    <use href="#icon-switch" x="650" y="690"/>
+    <text x="700" y="760" text-anchor="middle" font-size="13" font-weight="bold" fill="#000000">SW-B4</text>
+    <text x="700" y="775" text-anchor="middle" font-size="11" fill="#334155">Open vSwitch Core</text>
+
+    <!-- PC-USUARIO (VLAN 10) -->
+    <use href="#icon-laptop" x="220" y="880"/>
+    <text x="260" y="970" text-anchor="middle" font-size="13" font-weight="bold" fill="#000000">PC-USUARIO</text>
+    <text x="260" y="988" text-anchor="middle" font-size="11" fill="#008a00">IP: 192.168.41.10/24</text>
+    <text x="260" y="1004" text-anchor="middle" font-size="10" fill="#64748b">GW: 192.168.41.1</text>
+    <text x="260" y="1020" text-anchor="middle" font-size="10" fill="#334155">Cliente Bancario</text>
+
+    <!-- SRV-BANCA-APP-1 (VLAN 20) -->
+    <use href="#icon-server" x="530" y="880"/>
+    <text x="570" y="970" text-anchor="middle" font-size="13" font-weight="bold" fill="#000000">SRV-BANCA-APP-1</text>
+    <text x="570" y="988" text-anchor="middle" font-size="11" fill="#0050ef">IP: 192.168.42.20/24</text>
+    <text x="570" y="1004" text-anchor="middle" font-size="10" fill="#d97706">Puerto: 5000 (Flask Web)</text>
+    <text x="570" y="1020" text-anchor="middle" font-size="10" fill="#64748b">GW: 192.168.42.1</text>
+
+    <!-- SRV-BANCA-DB-1 (VLAN 20) -->
+    <use href="#icon-server" x="740" y="880"/>
+    <text x="780" y="970" text-anchor="middle" font-size="13" font-weight="bold" fill="#000000">SRV-BANCA-DB-1</text>
+    <text x="780" y="988" text-anchor="middle" font-size="11" fill="#0050ef">IP: 192.168.42.10/24</text>
+    <text x="780" y="1004" text-anchor="middle" font-size="10" fill="#059669">PostgreSQL: 5432</text>
+    <text x="780" y="1020" text-anchor="middle" font-size="10" fill="#64748b">GW: 192.168.42.1</text>
+
+    <!-- SRV-ARCHIVOS (VLAN 30) -->
+    <use href="#icon-server" x="1010" y="880"/>
+    <text x="1050" y="970" text-anchor="middle" font-size="13" font-weight="bold" fill="#000000">SRV-ARCHIVOS</text>
+    <text x="1050" y="988" text-anchor="middle" font-size="11" fill="#d80073">IP: 192.168.43.20/24</text>
+    <text x="1050" y="1004" text-anchor="middle" font-size="10" font-weight="bold" fill="#b91c1c">Blacklist API (8080)</text>
+    <text x="1050" y="1020" text-anchor="middle" font-size="10" fill="#64748b">GW: 192.168.43.1</text>
+
+    <!-- PC-ADMIN (VLAN 30) -->
+    <use href="#icon-laptop" x="1220" y="880"/>
+    <text x="1260" y="970" text-anchor="middle" font-size="13" font-weight="bold" fill="#000000">PC-ADMIN</text>
+    <text x="1260" y="988" text-anchor="middle" font-size="11" fill="#d80073">IP: 192.168.43.10/24</text>
+    <text x="1260" y="1004" text-anchor="middle" font-size="10" fill="#64748b">GW: 192.168.43.1</text>
+    <text x="1260" y="1020" text-anchor="middle" font-size="10" fill="#334155">Gestión y Control</text>
+
+  </g>
+</svg>
