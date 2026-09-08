@@ -1,5 +1,62 @@
 # Banco 5 (Banco con Segmentación Interna Avanzada)
 
+## Verificación global del anillo
+Verificación diagnóstica (2026-09-07 18:xx UTC-6, solo lectura, sin cambios de red) ejecutada desde el router de B5 contra toda la topología del anillo.
+
+### Vecinos directos
+* **Banco 4 (`10.0.0.13`):** ping **100%** (5/5, RTT 4-16 ms).
+* **Banco 1 (`10.0.0.18`):** ping **100%** (5/5, RTT 8-12 ms).
+
+### Redes /30 del anillo (destino probado → alcanzable)
+| Red | Destino probado | Alcanzable | Ruta activa (RIB) | Next-hop | Traza si falla |
+|---|---|---|---|---|---|
+| `10.0.0.0/30` (B1-B2) | `10.0.0.2` (B2) | **SÍ** (100%, RTT ~28-44 ms) | Estática AD1, track 3 | `10.0.0.18` | — |
+| `10.0.0.4/30` (B2-B3) | `10.0.0.6` (B3) | **NO** (0%) | Estática AD1, track 1 | `10.0.0.13` | Ver "Loop confirmado" abajo |
+| `10.0.0.8/30` (B3-B4) | `10.0.0.9` (B3) | **SÍ** (100%, RTT 20-32 ms) | Estática AD1, track 2 | `10.0.0.13` | — |
+| `10.0.0.12/30` (B4-B5) | `10.0.0.13` (B4) | **SÍ** (100%, RTT 4-16 ms) | Conectada | Eth1/0 (directo) | — |
+| `10.0.0.16/30` (B5-B1) | `10.0.0.18` (B1) | **SÍ** (100%, RTT 8-12 ms) | Conectada | Eth1/1 (directo) | — |
+
+### Loop confirmado en vivo (no teórico) hacia `10.0.0.4/30`
+`traceroute 10.0.0.6` desde B5 devuelve un rebote cerrado: `10.0.0.13 → 10.0.0.14 → 10.0.0.13 → 10.0.0.14 ...` hasta agotar TTL (13+ saltos capturados, sin llegar nunca a destino).
+
+* **Causa confirmada cruzando datos con `BANCO4.md`:** Banco4 reporta *"Ping B4 a B2 (`10.0.0.5`): 0% timeout vía `eth3`"* — su ruta primaria hacia `10.0.0.4/30` (`via 10.0.0.9`, hacia Banco3) está inalcanzable de su lado ahora mismo, así que activaron su propia ruta de respaldo `10.0.0.4/30 via 10.0.0.14` (¡hacia nosotros!). Nosotros, para esa misma red, tenemos como primaria `10.0.0.4/30 via 10.0.0.13` (hacia ellos, `track 1` sigue en Up porque solo verifica que Banco4 esté vivo, no que pueda llegar más allá). Resultado: ambos routers se reenvían mutuamente el tráfico hacia `10.0.0.4/30` sin que ninguno lo entregue nunca — **mismo mecanismo estructural que el loop ya documentado hacia `10.0.0.0/30`, ahora manifestado en el segmento `10.0.0.4/30`.**
+* Ninguno de los dos routers está mal configurado individualmente; es la colisión de dos respaldos flotantes apuntándose entre sí cuando el "arco largo" de cada uno falla al mismo tiempo que el "arco corto" del otro.
+
+### Routing — resumen
+* **Primarias:** `10.0.0.4/30 via 10.0.0.13` (track1), `10.0.0.8/30 via 10.0.0.13` (track2), `10.0.0.0/30 via 10.0.0.18` (track3). Las dos rutas B4-B5 y B5-B1 son conectadas, sin ruta estática.
+* **Flotantes (AD 200):** `10.0.0.0/30 via 10.0.0.13`, `10.0.0.4/30 via 10.0.0.18`, `10.0.0.8/30 via 10.0.0.18` — todas dan la vuelta completa por el otro lado del anillo.
+* **Rutas actualmente instaladas en RIB:** las 3 primarias (los 3 tracks están Up de nuestro lado) — `10.0.0.4/30` y `10.0.0.8/30` vía `10.0.0.13`; `10.0.0.0/30` vía `10.0.0.18`.
+* **¿Existe una ruta que devuelva tráfico hacia el banco del que vino?** No por diseño propio — nuestras 3 primarias y 3 flotantes siempre apuntan al vecino "de enfrente" respecto al segmento, nunca de vuelta al mismo. El loop actual ocurre porque **Banco4** (no nosotros) está devolviendo tráfico de `10.0.0.4/30` hacia B5 vía su propio respaldo, y nuestra primaria coincide en sentido contrario — ver sección de loop arriba.
+
+### IP SLA / Tracks
+| Track | SLA | Destino de la sonda | Estado | Controla ruta | ¿Coincide con conectividad real? |
+|---|---|---|---|---|---|
+| 1 | SLA1 | `10.0.0.13` (next-hop Banco4) | **Up** | `10.0.0.4/30` primaria | Sí para "Banco4 vivo", pero **no detecta** que Banco4 no puede reenviar más allá (por diseño, ver nota abajo) |
+| 2 | SLA2 | `10.0.0.13` (next-hop Banco4) | **Up** | `10.0.0.8/30` primaria | Sí, coincide (10.0.0.9 responde 100%) |
+| 3 | SLA3 | `10.0.0.18` (next-hop Banco1) | **Up** | `10.0.0.0/30` primaria | Sí, coincide (10.0.0.2 responde 100%) |
+
+**Nota de diseño (ya documentada en sección de IP SLA más abajo):** las sondas se corrigieron para apuntar al next-hop directo en vez del destino final, tras detectar una dependencia circular real que dejaba tracks atascados en Down. El costo aceptado de ese fix es exactamente lo que se ve ahora: `track 1` no detecta el fallo de Banco4→Banco3, porque ya no prueba esa ruta específica. Es un trade-off consciente, no un descuido.
+
+### Failover (análisis teórico, sin desconectar cables)
+* **Corte de `track 1` (Banco4 cae):** `10.0.0.4/30` viraría a `10.0.0.18` (Banco1) — dirección correcta en teoría. Riesgo: si Banco1 tampoco tiene ruta viva hacia `10.0.0.4/30` en ese momento, el tráfico se perdería silenciosamente en vez de hacer loop (mejor que un loop, pero sigue sin entregar servicio).
+* **Corte de `track 2` (Banco4 cae, vía `10.0.0.8/30`):** análogo, vira a Banco1.
+* **Corte de `track 3` (Banco1 cae):** `10.0.0.0/30` viraría a `10.0.0.13` (Banco4) — **aquí sí hay riesgo real de loop**, ya documentado: si Banco4 en simultáneo tiene su propio respaldo activo hacia nosotros para esa misma red (por ejemplo si su Track B2 también está Down en ese momento), ambos respaldos se apuntarían mutuamente. Requiere doble falla simultánea para materializarse.
+* **Loop potencial ya materializado, no solo teórico:** el de `10.0.0.4/30` descrito arriba, ocurriendo ahora mismo por la combinación (Banco4→Banco3 caído) + (nuestra primaria intacta hacia Banco4).
+
+### Servicio interbancario probado
+* Destino: `10.0.0.9` (Banco3, alcanzable ahora mismo por `10.0.0.8/30`).
+* Puerto 80: conecta, `HTTP 404` (`connect_time` ~0.07s).
+* Puerto 8080: conecta, `HTTP 404` (`connect_time` ~0.03s).
+* No se probó `10.0.0.6` para el servicio porque esa red está en loop en este momento (ver arriba) — no tendría sentido, el paquete no llegaría.
+* No se ejecutó ninguna transacción real, solo verificación de conectividad TCP/HTTP.
+
+### Problemas pendientes
+* Loop activo `10.0.0.4/30` (B4↔B5) — depende de que Banco4 recupere su ruta hacia Banco3/Banco2 (`Track B2`), no es algo que Banco5 pueda resolver unilateralmente sin arriesgar romper la ruta hacia `10.0.0.8/30` que sí funciona.
+* `ESTADO_ANILLO.md` (mantenido por Banco3) sigue mostrando "B5-B1 timeout" como estado — **desactualizado**, el enlace B5-B1 lleva operativo al 100% desde que se recreó el enlace físico. Se notifica pero no se modifica ese archivo (regla de exclusividad de edición).
+* Mitigación pendiente de evaluar: condicionar la ruta flotante `10.0.0.0/30 via 10.0.0.13` a un track adicional que verifique que Banco4 realmente tiene salida viva hacia esa red (evitar activar un respaldo hacia un callejón sin salida), similar a lo que Banco2 ya implementó con su Track 8.
+
+---
+
 ## Estado
 Última actualización: 2026-09-07 17:43 UTC-6
 Agente/responsable: Banco 5 (Agente de Integración)
