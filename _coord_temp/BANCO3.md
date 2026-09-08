@@ -316,15 +316,14 @@ Auditoría integral ejecutada desde los nodos de Banco 3 (R1 y WEB01) sobre la t
   * Destinos: `10.0.0.13` (B4) 100% OK (RTT 20 ms) / `10.0.0.14` (B5) 100% OK (RTT 20 ms).
   * Ruta activa: Primaria `10.0.0.12/30 via 10.0.0.10` (AD 1).
   * Traceroute: Salto 1 -> `10.0.0.10` (4 ms) -> Salto 2 -> `10.0.0.14` (32 ms).
-* **Red `10.0.0.16/30` (B5-B1):** **PARCIALMENTE ALCANZABLE**.
-  * Destino `10.0.0.17` (B5): **ALCANZABLE** forzando salida `Fa2/0` (100% OK, RTT 20 ms).
-  * Destino `10.0.0.18` (B1): **TIMEOUT** (0% éxito).
-  * Causa raíz de la asimetría: Banco 1 tiene su ruta hacia `10.0.0.8/30` orientada a Banco 2 (`10.0.0.2`) en lugar de responder por Banco 5. Al ingresar el ping por su interfaz este (`10.0.0.18`), B1 devuelve el paquete a B2, donde B2 tiene su track hacia B4 caído y lo descarta en `Null0`.
-  * Ruta activa en RIB de R1: Flotante `10.0.0.16/30 [10/0] via 10.0.0.5` activa debido a Track 2 en DOWN.
+* **Red `10.0.0.16/30` (B5-B1):** **ALCANZABLE**.
+  * Destino `10.0.0.17` (B5): **ALCANZABLE** (100% OK, RTT 20 ms).
+  * Destino `10.0.0.18` (B1): **ALCANZABLE** (SLA 2 responde OK con RTT 24 ms).
+  * Ruta activa en RIB de R1: Primaria `10.0.0.16/30 [1/0] via 10.0.0.10` instalada y activa (Track 2 UP).
 
 ### 13.3. IP SLA, Object Tracking y Local PBR
-* **SLA 1 (`10.0.0.1` vía `Fa1/0`):** **UP** (`Latest operation return code: OK`, RTT: 12 ms). Sonda forzada a `10.0.0.5` por Local PBR `RM-LOCAL-SLA`. Controla ruta primaria a `10.0.0.0/30`.
-* **SLA 2 (`10.0.0.18` vía `Fa2/0`):** **DOWN** (`Latest operation return code: Timeout`). Sonda forzada a `10.0.0.10` por Local PBR `RM-LOCAL-SLA`. Al estar DOWN, retira la primaria de `10.0.0.16/30` e instala la flotante por B2.
+* **SLA 1 (`10.0.0.1` vía `Fa1/0`):** **UP** (`Latest operation return code: OK`, RTT: 53 ms). Sonda forzada a `10.0.0.5` por Local PBR `RM-LOCAL-SLA`. Controla ruta primaria a `10.0.0.0/30`.
+* **SLA 2 (`10.0.0.18` vía `Fa2/0`):** **UP** (`Latest operation return code: OK`, RTT: 24 ms). Sonda forzada a `10.0.0.10` por Local PBR `RM-LOCAL-SLA`. **RECUPERADO A UP** tras la restauración de la ruta hacia `10.0.0.8/30` en Banco 2. Controla la ruta primaria a `10.0.0.16/30`, la cual se encuentra instalada en la RIB.
 
 ### 13.4. Evaluación de Failover y Bucles Potenciales
 * **Failover Oeste (B3 -> B2 -> B1):** Si B2 cae, R1 conmuta `10.0.0.0/30` a la flotante vía B4 (`10.0.0.10 AD 10`). Con B1 activo, B4 entrega a B5 y B5 a B1 sin bucles.
@@ -338,6 +337,25 @@ Auditoría integral ejecutada desde los nodos de Banco 3 (R1 y WEB01) sobre la t
 * **Banco 2 (`10.0.0.2:5001`):** **TIMEOUT** (la publicación NAT de B2 solo está activa en su interfaz Fa2/0 hacia B1, no en Fa3/0 hacia B3).
 * **Banco 4 (`10.0.0.10:8080`):** **CONNECTION REFUSED** (RST devuelto por B4; L3 operativo, servicio no atiende en esa interfaz).
 * **Banco 5 (`10.0.0.14:80`):** **CONNECTION REFUSED** (RST devuelto por B5; L3 operativo, sin servicio HTTP).
+
+### 13.6. Verificación Post-Cambio Banco 2 (Paso 1: Ruta Fija a 10.0.0.8/30)
+- **Cambio ejecutado por Banco 2:** Inserción de `ip route 10.0.0.8 255.255.255.252 10.0.0.6` (Paso 1).
+- **Pruebas en vivo desde R1 (Banco 3):**
+  - `ping 10.0.0.5` (vecino B2): **100% OK** (RTT min/avg/max = 88/94/100 ms).
+  - `ping 10.0.0.10` (vecino B4): **100% OK** (RTT min/avg/max = 4/22/36 ms).
+  - `ping 10.0.0.13` (tránsito B4): **100% OK** (RTT min/avg/max = 4/20/28 ms).
+  - `ping 10.0.0.14` (tránsito B5): **100% OK** (RTT min/avg/max = 4/21/32 ms).
+- **Estado de Rutas en R1:**
+  - `10.0.0.4/30`: Conectada directamente en `FastEthernet1/0`.
+  - `10.0.0.8/30`: Conectada directamente en `FastEthernet2/0`.
+  - `10.0.0.0/30`: Primaria `[1/0] via 10.0.0.5` ACTIVA (Track 1 UP).
+  - `10.0.0.16/30`: Primaria `[1/0] via 10.0.0.10` ACTIVA (Track 2 UP).
+- **Estado de Tracks en R1:**
+  - `Track 1`: **UP** (RTT 53 ms).
+  - `Track 2`: **UP** (RTT 24 ms) — **RECUPERADO**.
+- **Impacto y Estado de B4/B5:**
+  - Banco 2 reportó que sus tracks 4 y 7 hacia B4 (`10.0.0.10`) pasaron a UP.
+  - La extinción efectiva del bucle B4-B5 en `10.0.0.4/30` y la reactivación del Track B2 en B4 quedan **PENDIENTES DE CONFIRMACIÓN POR BANCO 4 Y BANCO 5** tras la publicación de sus reportes post-cambio.
 
 ---
 
