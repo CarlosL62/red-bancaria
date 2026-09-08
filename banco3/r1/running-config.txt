@@ -1,9 +1,5 @@
-! ==========================================================
-! BANCO 3 - ROUTER R1 RUNNING CONFIGURATION (VERIFICADA)
-! Estado: En produccion / Verificado en vivo
-! Fecha: 2026-09-07
-! Sanitizacion: Sin credenciales ni claves privadas
-! ==========================================================
+Current configuration : 4087 bytes
+!
 version 12.4
 service timestamps debug datetime msec
 service timestamps log datetime msec
@@ -38,6 +34,12 @@ ip sla monitor 2
  threshold 2000
  frequency 5
 ip sla monitor schedule 2 life forever start-time now
+ip sla monitor 3
+ type echo protocol ipIcmpEcho 10.0.0.14 source-interface FastEthernet2/0
+ timeout 2000
+ threshold 2000
+ frequency 5
+ip sla monitor schedule 3 life forever start-time now
 !
 !
 !
@@ -62,6 +64,8 @@ ip tcp synwait-time 5
 track 1 rtr 1 reachability
 !
 track 2 rtr 2 reachability
+!
+track 3 rtr 3 reachability
 !
 !
 !
@@ -118,10 +122,10 @@ ip local policy route-map RM-LOCAL-SLA
 ip forward-protocol nd
 ip route 10.0.0.0 255.255.255.252 10.0.0.5 track 1
 ip route 10.0.0.16 255.255.255.252 10.0.0.10 track 2
+ip route 10.0.0.12 255.255.255.252 10.0.0.10 track 3
 ip route 10.0.0.0 255.255.255.252 10.0.0.10 10
 ip route 10.0.0.4 255.255.255.252 10.0.0.10 10
 ip route 10.0.0.8 255.255.255.252 10.0.0.5 10
-ip route 10.0.0.12 255.255.255.252 10.0.0.10
 ip route 10.0.0.12 255.255.255.252 10.0.0.5 10
 ip route 10.0.0.16 255.255.255.252 10.0.0.5 10
 ip route 172.16.1.0 255.255.255.0 172.16.0.1
@@ -140,6 +144,8 @@ ip nat inside source static tcp 172.16.2.2 8081 10.0.0.9 80 extendable
 !
 ip access-list extended ACL-SLA-B2-B1
  permit icmp host 10.0.0.6 host 10.0.0.1
+ip access-list extended ACL-SLA-B4-B5
+ permit icmp host 10.0.0.9 host 10.0.0.14
 ip access-list extended ACL-SLA-B5-B1
  permit icmp host 10.0.0.9 host 10.0.0.18
 !
@@ -149,6 +155,10 @@ no cdp log mismatch duplex
 !
 route-map RM-LOCAL-SLA permit 10
  match ip address ACL-SLA-B5-B1
+ set ip next-hop 10.0.0.10
+!
+route-map RM-LOCAL-SLA permit 15
+ match ip address ACL-SLA-B4-B5
  set ip next-hop 10.0.0.10
 !
 route-map RM-LOCAL-SLA permit 20

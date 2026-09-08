@@ -59,9 +59,9 @@ Consolidación técnica oficial del estado del anillo de interconexión entre la
 |---|---|---|---|---|---|
 | **Banco 1** | Cisco IOSv | Primarias AD 1 / Flotantes AD 20 | Sin IP SLA (sustituido por line-protocol) | Track 1 (Gi0/1) / Track 2 (Gi0/2) | **Track 1 UP / Track 2 UP** |
 | **Banco 2** | Cisco 3745 | Primarias AD 1 (fija a `.8/30`) / Flotantes AD 100 condicionadas a track + `Null0 /27` | SLAs 1-6 (ICMP echo cada 5s) | Tracks 1, 2, 3, 4, 5, 6, 7, 8 | **Tracks 1, 2, 4, 7 UP** / **Track 8 DOWN** (flotante contingencia) |
-| **Banco 3** | Cisco 3745 | Primarias AD 1 / Flotantes AD 10 + Local PBR (`RM-LOCAL-SLA`) | SLAs 1-2 (ICMP echo cada 5s forzadas por PBR) | Track 1 (SLA 1) / Track 2 (SLA 2) | **Track 1 UP / Track 2 UP** |
+| **Banco 3** | Cisco 3745 | Primarias AD 1 / Flotantes AD 10 + Local PBR (`RM-LOCAL-SLA`) | SLAs 1, 2, 3 (ICMP echo cada 5s forzadas por Local PBR) | Track 1 (SLA 1), Track 2 (SLA 2), Track 3 (SLA 3) | **Tracks 1, 2, 3 UP (100% OPERATIVO)** |
 | **Banco 4** | Linux (Alpine) | Primarias Métrica 10 / Flotantes Métrica 20 (sin NAT tránsito) | Script `ip-sla-ring.sh` (sondas cada 2s) | Tracks B3, B2, B5, B1 | **Tracks B3, B2, B5, B1 UP (100% OPERATIVO)** |
-| **Banco 5** | Cisco IOSv | Primarias AD 1 / Flotantes AD 200 (sin NAT tránsito) | SLAs 1-3 al next-hop directo (`delay down 10 up 5`) | Tracks 1, 2, 3 | **Tracks 1, 2, 3 UP** |
+| **Banco 5** | Cisco IOSv | Primarias AD 1 / Flotantes AD 200 + Local PBR (`RM-LOCAL-SLA`) | SLAs 10 y 20 al Hop 2 (ICMP echo cada 5s forzadas por PBR) | Tracks 10 y 20 | **Tracks 10 y 20 UP (100% OPERATIVO)** |
 
 ---
 

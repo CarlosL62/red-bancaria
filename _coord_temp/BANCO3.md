@@ -87,7 +87,7 @@ ip route 10.0.0.0 255.255.255.252 10.0.0.5 track 1    ! Primaria vía B2 (AD 1, 
 ip route 10.0.0.0 255.255.255.252 10.0.0.10 10        ! Flotante de respaldo vía B4 (AD 10)
 
 ! Destino: Segmento B4-B5 (10.0.0.12/30)
-ip route 10.0.0.12 255.255.255.252 10.0.0.10          ! Primaria vía B4 (AD 1)
+ip route 10.0.0.12 255.255.255.252 10.0.0.10 track 3  ! Primaria vía B4 (AD 1, condicionada a Track 3)
 ip route 10.0.0.12 255.255.255.252 10.0.0.5 10        ! Flotante de respaldo vía B2 (AD 10)
 
 ! Destino: Segmento B5-B1 (10.0.0.16/30)
@@ -99,8 +99,9 @@ ip route 10.0.0.4 255.255.255.252 10.0.0.10 10        ! Respaldo B2 vía B4 (AD 
 ip route 10.0.0.8 255.255.255.252 10.0.0.5 10         ! Respaldo B4 vía B2 (AD 10)
 ```
 
-### IP SLA y Object Tracking
-* **SLA 1:** Monitorea la alcanzabilidad de Banco 1 (`10.0.0.1`) por el lado izquierdo.
+### IP SLA y Object Tracking (Arquitectura End-to-End Hop-2/Hop-3)
+Banco 3 implementa la supervisión completa de extremo a extremo en ambas direcciones del anillo:
+* **Track 1 (B3 -> B2 -> B1):** Monitorea la alcanzabilidad de Banco 1 (`10.0.0.1`, Salto 2) por el camino oeste (Fa1/0 hacia B2). Controla la primaria a `10.0.0.0/30`.
   ```text
   ip sla monitor 1
    type echo protocol ipIcmpEcho 10.0.0.1 source-interface FastEthernet1/0
@@ -110,7 +111,17 @@ ip route 10.0.0.8 255.255.255.252 10.0.0.5 10         ! Respaldo B4 vía B2 (AD 
   ip sla monitor schedule 1 life forever start-time now
   track 1 rtr 1 reachability
   ```
-* **SLA 2:** Monitorea la alcanzabilidad de Banco 1 (`10.0.0.18`) por el lado derecho.
+* **Track 3 (B3 -> B4 -> B5):** Monitorea la alcanzabilidad de Banco 5 (`10.0.0.14`, Salto 2) por el camino este (Fa2/0 hacia B4). Controla la primaria a `10.0.0.12/30`.
+  ```text
+  ip sla monitor 3
+   type echo protocol ipIcmpEcho 10.0.0.14 source-interface FastEthernet2/0
+   timeout 2000
+   threshold 2000
+   frequency 5
+  ip sla monitor schedule 3 life forever start-time now
+  track 3 rtr 3 reachability
+  ```
+* **Track 2 (B3 -> B4 -> B5 -> B1):** Monitorea la alcanzabilidad de Banco 1 (`10.0.0.18`, Salto 3) por el camino este (Fa2/0 hacia B4). Controla la primaria a `10.0.0.16/30`.
   ```text
   ip sla monitor 2
    type echo protocol ipIcmpEcho 10.0.0.18 source-interface FastEthernet2/0
@@ -122,15 +133,21 @@ ip route 10.0.0.8 255.255.255.252 10.0.0.5 10         ! Respaldo B4 vía B2 (AD 
   ```
 
 ### Local PBR (Policy Based Routing Local)
-Para evitar la dependencia circular (flapping) donde una sonda utiliza la ruta de respaldo al caer la primaria y genera falsos positivos, se fijó la política local en R1:
+Para evitar la dependencia circular (flapping) donde una sonda utiliza la ruta de respaldo al caer la primaria y genera falsos positivos, se fija la política local en R1 mediante Local PBR:
 ```text
 ip access-list extended ACL-SLA-B2-B1
  permit icmp host 10.0.0.6 host 10.0.0.1
+ip access-list extended ACL-SLA-B4-B5
+ permit icmp host 10.0.0.9 host 10.0.0.14
 ip access-list extended ACL-SLA-B5-B1
  permit icmp host 10.0.0.9 host 10.0.0.18
 
 route-map RM-LOCAL-SLA permit 10
  match ip address ACL-SLA-B5-B1
+ set ip next-hop 10.0.0.10
+!
+route-map RM-LOCAL-SLA permit 15
+ match ip address ACL-SLA-B4-B5
  set ip next-hop 10.0.0.10
 !
 route-map RM-LOCAL-SLA permit 20
@@ -139,7 +156,7 @@ route-map RM-LOCAL-SLA permit 20
 
 ip local policy route-map RM-LOCAL-SLA
 ```
-* **Ventaja:** No requiere rutas estáticas `/32` que secuestren la tabla de enrutamiento global. Aplica estrictamente a las sondas ICMP generadas por R1. El tráfico normal de los servidores conmuta limpiamente a las rutas flotantes `/30`.
+* **Ventaja y Diferenciador Técnico:** A diferencia del uso de rutas `/32` fijas (que sufren del efecto *Longest Prefix Match* secuestrando el tráfico de datos en la FIB ante fallas), Local PBR actúa **exclusivamente sobre los paquetes ICMP generados por el router local R1**, dejando el tráfico real de producción completamente libre para conmutar a las rutas flotantes de respaldo. Esto constituye la implementación en Cisco IOS del principio *End-to-End* de la guía de Banco 4 de forma limpia y transparente.
 
 ---
 
@@ -314,7 +331,7 @@ Auditoría integral ejecutada desde los nodos de Banco 3 (R1 y WEB01) sobre la t
   * Destino: `10.0.0.10` (B4) 100% OK (RTT 8 ms). Directamente conectada en `Fa2/0` (AD 0).
 * **Red `10.0.0.12/30` (B4-B5):** **ALCANZABLE**.
   * Destinos: `10.0.0.13` (B4) 100% OK (RTT 20 ms) / `10.0.0.14` (B5) 100% OK (RTT 20 ms).
-  * Ruta activa: Primaria `10.0.0.12/30 via 10.0.0.10` (AD 1).
+  * Ruta activa: Primaria `10.0.0.12/30 via 10.0.0.10` (AD 1, condicionada a Track 3).
   * Traceroute: Salto 1 -> `10.0.0.10` (4 ms) -> Salto 2 -> `10.0.0.14` (32 ms).
 * **Red `10.0.0.16/30` (B5-B1):** **ALCANZABLE**.
   * Destino `10.0.0.17` (B5): **ALCANZABLE** (100% OK, RTT 20 ms).
@@ -322,8 +339,9 @@ Auditoría integral ejecutada desde los nodos de Banco 3 (R1 y WEB01) sobre la t
   * Ruta activa en RIB de R1: Primaria `10.0.0.16/30 [1/0] via 10.0.0.10` instalada y activa (Track 2 UP).
 
 ### 13.3. IP SLA, Object Tracking y Local PBR
-* **SLA 1 (`10.0.0.1` vía `Fa1/0`):** **UP** (`Latest operation return code: OK`, RTT: 53 ms). Sonda forzada a `10.0.0.5` por Local PBR `RM-LOCAL-SLA`. Controla ruta primaria a `10.0.0.0/30`.
-* **SLA 2 (`10.0.0.18` vía `Fa2/0`):** **UP** (`Latest operation return code: OK`, RTT: 24 ms). Sonda forzada a `10.0.0.10` por Local PBR `RM-LOCAL-SLA`. **RECUPERADO A UP** tras la restauración de la ruta hacia `10.0.0.8/30` en Banco 2. Controla la ruta primaria a `10.0.0.16/30`, la cual se encuentra instalada en la RIB.
+* **SLA 1 (`10.0.0.1` vía `Fa1/0`):** **UP** (`Latest operation return code: OK`, RTT: 53 ms). Sonda forzada a `10.0.0.5` por Local PBR `RM-LOCAL-SLA` (seq 20). Controla ruta primaria a `10.0.0.0/30`.
+* **SLA 3 (`10.0.0.14` vía `Fa2/0`):** **UP** (`Latest operation return code: OK`, RTT: 4 ms). Sonda forzada a `10.0.0.10` por Local PBR `RM-LOCAL-SLA` (seq 15). Controla ruta primaria a `10.0.0.12/30`. **COMPLEMENTO END-TO-END HOP-2:** Detecta pérdida del enlace B4-B5 y conmuta a la flotante vía B2.
+* **SLA 2 (`10.0.0.18` vía `Fa2/0`):** **UP** (`Latest operation return code: OK`, RTT: 24 ms). Sonda forzada a `10.0.0.10` por Local PBR `RM-LOCAL-SLA` (seq 10). Controla la ruta primaria a `10.0.0.16/30`.
 
 ### 13.4. Evaluación de Failover y Bucles Potenciales
 * **Failover Oeste (B3 -> B2 -> B1):** Si B2 cae, R1 conmuta `10.0.0.0/30` a la flotante vía B4 (`10.0.0.10 AD 10`). Con B1 activo, B4 entrega a B5 y B5 a B1 sin bucles.
