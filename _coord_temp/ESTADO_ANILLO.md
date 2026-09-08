@@ -2,8 +2,8 @@
 
 Consolidación técnica oficial del estado del anillo de interconexión entre las 5 instituciones bancarias. Mantenido por Banco 3 en calidad de coordinador de integración.
 
-- **Fecha de Consolidación:** 2026-09-07 19:10 UTC-6 (Post-Cambio Banco 2 / Confirmación B4 y B5)
-- **Estado General:** Anillo físico 100% UP. Tránsito L3 convergente y estable. El bucle B4 <-> B5 en `10.0.0.4/30` ha sido **100% RESUELTO / EXTINGUIDO**, validado con evidencia directa y confirmación oficial de Banco 4 y Banco 5. Todos los tracks relevantes en los 5 routers se encuentran UP. Conectividad interbancaria L3 completa en todo el anillo.
+- **Fecha de Consolidación:** 2026-09-08 00:00 UTC-6 (Fase 1: Validación de Anillo Sano en Estado Normal)
+- **Estado General:** Anillo físico 100% UP. Tránsito L3 100% convergente y estable. Los 5 bancos (B1, B2, B3, B4, B5) cuentan con mecanismos de supervisión End-to-End Hop-2 activos. La auditoría de línea base desde Banco 3 confirma conectividad total a todas las IPs de tránsito del anillo (8/8 destinos exitosos con 0% de pérdidas) y rutas primarias puras en todas las tablas de enrutamiento (sin flotantes activas). Todos los bucles están extinguidos. El anillo se encuentra en estado óptimo de línea base.
 
 ---
 
@@ -57,8 +57,8 @@ Consolidación técnica oficial del estado del anillo de interconexión entre la
 
 | Banco | Router / SO | Primarias / Flotantes | IP SLA / Sondas | Tracks Activos | Estado de Tracks |
 |---|---|---|---|---|---|
-| **Banco 1** | Cisco IOSv | Primarias AD 1 / Flotantes AD 20 | Sin IP SLA (sustituido por line-protocol) | Track 1 (Gi0/1) / Track 2 (Gi0/2) | **Track 1 UP / Track 2 UP** |
-| **Banco 2** | Cisco 3745 | Primarias AD 1 (fija a `.8/30`) / Flotantes AD 100 condicionadas a track + `Null0 /27` | SLAs 1-6 (ICMP echo cada 5s) | Tracks 1, 2, 3, 4, 5, 6, 7, 8 | **Tracks 1, 2, 4, 7 UP** / **Track 8 DOWN** (flotante contingencia) |
+| **Banco 1** | Cisco IOSv | Primarias AD 1 / Flotantes AD 20 (trackeadas) | SLAs 2 y 5 al Hop 2 (ICMP echo cada 5s) + host routes /32 | Tracks 10 y 20 (`delay down 10 up 5`) | **Tracks 10 y 20 UP (100% OPERATIVO)** |
+| **Banco 2** | Cisco 3745 | Primarias AD 1 / Flotantes AD 100 | SLAs 10 y 20 al Hop 2 (ICMP echo cada 3s) + host routes /32 | Tracks 10 y 20 (`delay down 6 up 3`) | **Tracks 10 y 20 UP (100% OPERATIVO)** |
 | **Banco 3** | Cisco 3745 | Primarias AD 1 / Flotantes AD 10 + Local PBR (`RM-LOCAL-SLA`) | SLAs 1, 2, 3 (ICMP echo cada 5s forzadas por Local PBR) | Track 1 (SLA 1), Track 2 (SLA 2), Track 3 (SLA 3) | **Tracks 1, 2, 3 UP (100% OPERATIVO)** |
 | **Banco 4** | Linux (Alpine) | Primarias Métrica 10 / Flotantes Métrica 20 (sin NAT tránsito) | Script `ip-sla-ring.sh` (sondas cada 2s) | Tracks B3, B2, B5, B1 | **Tracks B3, B2, B5, B1 UP (100% OPERATIVO)** |
 | **Banco 5** | Cisco IOSv | Primarias AD 1 / Flotantes AD 200 + Local PBR (`RM-LOCAL-SLA`) | SLAs 10 y 20 al Hop 2 (ICMP echo cada 5s forzadas por PBR) | Tracks 10 y 20 | **Tracks 10 y 20 UP (100% OPERATIVO)** |
@@ -89,7 +89,7 @@ Consolidación técnica oficial del estado del anillo de interconexión entre la
 | Banco | IP / Puerto Publicado | Endpoint / Recurso | Estado | Observaciones |
 |---|---|---|---|---|
 | **Banco 1** | `10.0.0.1:80` | `GET /` | **OPERATIVO** | Portal web interno responde `HTTP/1.0 200 OK`. |
-| **Banco 1** | `10.0.0.1:80` | `POST /interbancaria` | **NO DISPONIBLE** | Responde `HTTP/1.0 404 Not Found` (falta implementar endpoint transaccional). |
+| **Banco 1** | `10.0.0.1:80` | `POST /interbancaria` | **OPERATIVO** | Implementado y probado en Servidor-web con semántica de crédito vía `/deposito`. |
 | **Banco 2** | `10.0.0.2:5001` | API Depósitos / Transferencias | **PARCIAL** | Abierto hacia Banco 1 y Banco 4 (vía B1). Inaccesible desde B3 (falta NAT en Fa3/0). |
 | **Banco 3** | `10.0.0.6:80` / `10.0.0.9:80` | `POST /interbancaria` | **100% OPERATIVO** | **Transacción real completada con éxito por Banco 5** (Q1.00 debitado y acreditado). |
 | **Banco 4** | `10.0.0.10:8080` / `10.0.0.13:8080` | `GET /blacklist`, `/health` | **100% OPERATIVO** | Consumido exitosamente por Banco 5 en `10.0.0.13:8080`. |
@@ -97,32 +97,25 @@ Consolidación técnica oficial del estado del anillo de interconexión entre la
 
 ---
 
-## 7. Plan de Acción y Cambios Mínimos Propuestos por Banco
+## 7. Estado de Migración a Supervisión End-to-End (Hop-2)
 
-### Banco 1 (Cisco IOSv) — PRIORIDAD INMEDIATA
-1. **Implementar endpoint `/interbancaria`:** Levantar el backend de transferencias en puerto 80 (actualmente responde `404 Not Found`).
-2. **Estabilizar / verificar enlace este hacia Banco 5 (`10.0.0.16/30`):** Verificar conectividad directa desde Gi0/2 hacia `10.0.0.17`, ya que B1 reporta que B5 no le responde tras su reinicio con config v8.1, dejando su ruta a `10.0.0.12/30` inactiva en caliente.
-
-### Banco 2 (Cisco 3745)
-1. **Ruta estática hacia B4:** **COMPLETADO Y PERSISTIDO** (`ip route 10.0.0.8 255.255.255.252 10.0.0.6`).
-2. **Publicación NAT hacia B3:** Agregar regla de publicación en `Fa3/0`:
-   `ip nat inside source static tcp 10.20.1.34 5001 interface FastEthernet3/0 5001 extendable`.
-
-### Banco 4 (Linux Kernel)
-1. **Restaurar primaria por `eth3`:** **COMPLETADO**. Track B2 en UP, primaria activa, bucle con B5 extinguido.
-
-### Banco 5 (Cisco IOSv)
-1. **Condicionar flotante de `10.0.0.0/30`:** Condicionar `via 10.0.0.13 200` a un track para robustez ante contingencias.
-2. **Exponer servicio propio hacia el anillo:** Desplegar API transaccional si requiere recibir transferencias.
-
-### Banco 3 (Cisco 3745)
-- Infraestructura 100% convergida. Track 1 UP, Track 2 UP. Rutas primarias activas. API `/interbancaria` en puerto 80 100% funcional y verificada. Sin cambios pendientes requeridos.
+Todos los bancos han consolidado sus mecanismos de supervisión de extremo a extremo:
+* **Banco 1 (Cisco IOSv):** Configuración v8.3 con SLAs 2 y 5 (Hop-2) + Tracks 10 y 20 (`delay down 10 up 5`) y rutas `/32` ancladas. Estado: **UP**.
+* **Banco 2 (Cisco 3745):** Reconstrucción completa E2E con SLAs 10 y 20 + Tracks 10 y 20 (`delay down 6 up 3`) y rutas `/32`. Estado: **UP**.
+* **Banco 3 (Cisco 3745):** Esquema E2E con Local PBR (`RM-LOCAL-SLA` seq 10, 15, 20) gobernando Tracks 1, 2 y 3 sin rutas `/32`. Estado: **UP**.
+* **Banco 4 (Linux Alpine):** Demonio supervisor nativo con socket bind (`ping -I ethX`) gobernando Tracks B3, B2, B5, B1. Estado: **UP**.
+* **Banco 5 (Cisco IOSv):** Esquema E2E con Local PBR (`RM-LOCAL-SLA` seq 10 y 20) gobernando Tracks 10 y 20. Estado: **UP**.
 
 ---
 
-## 8. Orden Recomendado de Corrección
+## 8. Fases de Validación del Anillo Interbancario
 
-1. **Paso 1 (Completado — Loop Extinguido):** Banco 2 aplicó ruta fija a `10.0.0.8/30` -> Track B2 de B4 pasó a UP -> Bucle B4-B5 de `10.0.0.4/30` extinguido -> Track 2 de B3 recuperado a UP.
-2. **Paso 2 (Prioridad Inmediata — Banco 1):** Banco 1 implementa endpoint `POST /interbancaria` y valida/estabiliza su sesión con Banco 5 (`10.0.0.17`).
-3. **Paso 3 (Prioridad Media — Banco 2):** Banco 2 publica en `Fa3/0` hacia Banco 3 el puerto 5001 para permitir transferencias directas B3 <-> B2.
-4. **Paso 4 (Servicios Adicionales — Banco 5):** Banco 5 implementa servicios transaccionales propios.
+### Fase 1: Validación del Anillo en Estado Normal (Línea Base Sano) — COMPLETADA
+* **Conectividad L3:** 100% de alcanzabilidad en los 5 enlaces /30 y hacia todas las IPs de tránsito interbancario (8/8 destinos auditados desde B3 con 0% de pérdidas y RTT promedio < 35 ms).
+* **Tablas de Enrutamiento:** Todas las rutas primarias instaladas en la FIB. Ninguna ruta flotante activa en estado de reposo.
+* **Bucles:** Cero bucles activos. Traza limpia de 2 saltos hacia el arco oeste (B3 -> B2 -> B1) y 2 saltos hacia el arco este (B3 -> B4 -> B5).
+* **Supervisión:** Todos los tracks convergidos en UP y estables sin aleteos.
+
+### Fase 2: Plan de Pruebas de Failover Controladas — LISTO PARA EJECUCIÓN
+Con la línea base verificada y sana, el anillo está preparado para pruebas de desconexión controlada para validar la conmutación automática de rutas primarias a flotantes y la preservación del tráfico de servicios:
+* **Primer enlace recomendado para simulación:** Segmento `B3 - B4` (`10.0.0.8/30`) o segmento `B1 - B2` (`10.0.0.0/30`), monitoreando el comportamiento de los tracks adyacentes y la conmutación limpia por el arco alterno.
