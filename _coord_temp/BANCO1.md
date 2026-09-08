@@ -1,7 +1,7 @@
 # Banco 1 (Banca minorista con sucursales)
 
 ## Estado
-Última actualización: 2026-09-08 (config v8.2: observación del anillo con IP SLA + EEM, verificada con rearranque limpio)
+Última actualización: 2026-09-08 (config v8.2 + endpoint `/interbancaria` implementado y probado)
 Agente/responsable: Agente Banco 1
 
 ## Verificación global del anillo
@@ -15,7 +15,7 @@ Re-verificación completa (2026-09-08 ~00:25-00:35 UTC-6, post-rearranque limpio
 
 ### Vecinos directos (2026-09-08, post-restart)
 * **Banco 2 (`10.0.0.2`):** ping **100%** (RTT 8-31 ms). ARP `ca01.d8af.0038`. Link Gi0/1 UP.
-* **Banco 5 (`10.0.0.17`):** ping **0%** (0/2). Link Gi0/2 UP/UP y track 2 UP, pero B5 **no responde ICMP** en `10.0.0.17`. PENDIENTE DE CONFIRMACIÓN POR BANCO 5 (B5.md reportaba operativo a las 17:43 UTC-6; su nodo dejó de responder después).
+* **Banco 5 (`10.0.0.17`):** link Gi0/2 **UP/UP**, track 2 UP, **ARP resuelto** (`ca01.aa69.001d`, ARPA, Gi0/2) → B5 tiene presencia L2 viva. Pero **ICMP no responde de forma sostenida**: ping **0%** en batería de sondeos (incluir ~60-90 s de observación), IP SLA 4/5 (op4→`.17`, op5→`.13`) **sin nuevos éxitos** en ventana de 60 s (contador estancado en 181 éxitos históricos). Intermitencia previa **persiste** (B5 respondió ~00:58 y puntos aislados, hoy 0%). PENDIENTE DE CONFIRMACIÓN POR BANCO 5.
 
 ### Redes /30 del anillo (destino probado → alcanzable, 2026-09-08)
 | Red | Destino probado | Alcanzable | Ruta activa (RIB) | Next-hop | Traza |
@@ -133,7 +133,24 @@ Confirmado en documentación de los vecinos (2026-09-07/08):
 ## Servicios interbancarios publicados
 * `http://10.0.0.1/` → `172.16.30.5:80` — portal interno "Banco 1 - Portal Interno" (HTTP 200 en `/`).
 * `10.0.0.1:8080` → `172.16.30.6:8080` — responde; Banco 2 accedió a `10.0.0.1:8080` en prueba previa (traducción NAT viva registrada).
-* **`/interbancaria`: PENDIENTE DE CONFIRMACIÓN** — el endpoint devolvió **HTTP 404** tanto en `172.16.30.5:80` como en `172.16.30.6:8080`. Falta definir/implementar ese recurso (¿path del portal o servicio aparte?).
+* **`/interbancaria`: IMPLEMENTADO** en `172.16.30.5:80` (POST). Ver sección "Endpoint `/interbancaria`". Antes devolvía HTTP 404 en GET y 400 en JSON sin `cuenta_origen`.
+
+## Endpoint `/interbancaria` (implementado 2026-09-08)
+* **Arquitectura real usada** (sin inventar servicio nuevo): aplicación propia `web_server.py` (`http.server` de Python stdlib) en el `Servidor-web` (`172.16.30.5:80`, Tiny Core), con backend de cuentas vía API HTTP `172.16.30.4:5000` (`/cuentas`, `/deposito`). Publicado al anillo por el NAT estático existente del router: **`http://10.0.0.1:80/interbancaria`** (no se abrió ningún puerto adicional ni servicios internos).
+* **Contrato mínimo aplicado:**
+  * `POST /interbancaria`, JSON `{"cuenta_destino": <id>, "monto": <cantidad>}` + opcionales `{"cuenta_origen": <ref>, "banco_origen": <ref>}` (solo eco).
+  * **200** → `{"ok": true, "estado": "exito", "mensaje": "acreditacion interbancaria aceptada y aplicada", "cuenta_destino": <id>, "cuenta_destino_nombre": <nombre>, "monto": <monto>, "saldo": <saldo>}` + eco de `cuenta_origen`/`banco_origen` si se enviaron.
+  * **400** → `{"ok": false, "codigo": "JSON_INVALIDO"}` (JSON no parseable) o `{"ok": false, "codigo": "DATOS_INVALIDOS"}` (falta `cuenta_destino`, `monto` no numérico o `≤ 0`).
+  * **404** → `{"ok": false, "codigo": "CUENTA_DESTINO_INEXISTENTE"}` (destino no está en `/cuentas`).
+  * **500** → `{"ok": false, "codigo": "ERROR_BD"}` (backend de cuentas inalcanzable) o `{"ok": false, "codigo": "ACREDITACION_FALLIDA"}` (fallo al acreditar).
+* **Semántica entrante (solo acredita):** el endpoint **acredita** `monto` en `cuenta_destino` (sin débito local; el descuento lo hace el banco emisor). La acreditación usa `POST /deposito` con `empleado_id: 2` (compatible con el backend).
+* **Persistencia:** cambio desplegado **offline** sobre el disco del `Servidor-web`: nuevo `mydata.tgz` (Tiny Core) dentro del filesystem; el disco del nodo se convirtió a **qcow2 autocontenido** (`hda_disk.qcow2`, backup previo `hda_disk.qcow2.bak_v9`). El VM fue rearrancado con el nuevo disco y el server ya sirve el nuevo contrato.
+* **Pruebas ejecutadas (2026-09-08, desde firewall interno `10.10.2.2`):**
+  * `GET /` → 200 (portal); `GET /interbancaria` → 404 (solo POST).
+  * `POST` JSON inválido → 400; `POST {"cuenta_destino":"1","monto":-3}` → 400.
+  * `POST {"cuenta_destino":"99","monto":5}` → 404.
+  * `POST {"cuenta_destino":"1","monto":5,...}` → 200 `ok:true`, saldo cuenta 1 (Juan Perez): **500.00 → 505.00**; segunda petición → **510.00** (crédito **exactamente una vez por petición**, verificado contra `/cuentas`).
+* **Limitaciones:** SSH a `172.16.30.5` bloqueado por política del FW interno → despliegue mediante parcheo de disco; consola GNS3 del `Servidor-web` inestable (datos rompen la sesión). Pendiente validación de una transferencia coordinada real desde B2/B3/B5 (no ejecutada por instrucción).
 
 ## Pruebas de conectividad
 Re-verificación 2026-09-08 post-restart (ping 2/2 con `repeat 2 timeout 2`, salvo indicación):
@@ -141,10 +158,10 @@ Re-verificación 2026-09-08 post-restart (ping 2/2 con `repeat 2 timeout 2`, sal
 * ping `10.0.0.5` (interfaz lejana de B2): 100%.
 * ping `10.0.0.6` (**B3**, vía B2): 100%, ~47-68 ms — tránsito del anillo oeste OK.
 * ping `10.0.0.9` / `10.0.0.10` (**B3 / B4**): 100% (RTT ~60-121 ms a `.10`) — **`10.0.0.8/30` (B3-B4) ya transita por B2/B3**; traceroute `.10` completa: B1→`.2`→`.6`→`.10`.
-* ping `10.0.0.17` (B5): **flapeando** — respondió brevemente ~00:58 (RTT 8-10 ms) y volvió a caer; tras el rearranque v8.2 (01:07) da timeout 0/2. PENDIENTE DE CONFIRMACIÓN POR BANCO 5.
-* ping `10.0.0.13` (B4, vía B5) / `10.0.0.14` (B5): **0%** en el arco este mientras B5 no responde (respondieron también ~00:58).
+* ping `10.0.0.17` (B5): **0% sostenido** en batería de sondeos (2026-09-08, ~90 s de observación; aislados aciertos previos ~00:58). Tras el rearranque v8.2 (01:07) y en la re-verificación de hoy, timeout. PENDIENTE DE CONFIRMACIÓN POR BANCO 5.
+* ping `10.0.0.13` (B4, vía B5) / `10.0.0.14` (B5): **0%** en el arco este mientras B5 no responde (hubo respuestas puntuales ~00:58).
 * ping `10.10.2.2` (FW interno): 100% (~1 ms).
-* ARP vivos: `10.0.0.2` (`ca01.d8af.0038`). B5 sin ARP válido en uso (Gi0/2 arriba, sin respuesta).
+* ARP vivos: `10.0.0.2` (`ca01.d8af.0038`, Gi0/1) y `10.0.0.17` (**`ca01.aa69.001d`**, Gi0/2) — B5 resuelve ARP (presencia L2) aunque no responde ICMP; `10.0.0.18` es la IP propia.
 * Respuesta ICMP de B1 a sondas externas: **PENDIENTE DE CONFIRMACIÓN POR BANCO 2/3/5** (no es posible originar la sonda desde el propio nodo).
 
 ## Failover
@@ -155,8 +172,8 @@ Re-verificación 2026-09-08 post-restart (ping 2/2 con `repeat 2 timeout 2`, sal
 
 ## Problemas conocidos
 * `ESTADO_ANILLO.md` (B3) y `BANCO2.md` desactualizados: siguen sin reflejar que `10.0.0.8/30` (B3-B4) YA es alcanzable por el arco oeste desde B1 (B1→B2→B3→B4), ni el fix v8.1 + observación v8.2 de B1, ni el estado este "B5 flapeando".
-* Arco este: Gi0/2 UP pero B5 (`10.0.0.17`) no responde ICMP → `.13`/`.14` inalcanzables desde B1 (PENDIENTE DE CONFIRMACIÓN POR BANCO 5).
-* `/interbancaria` → HTTP 404 (ver servicios).
+* Arco este: Gi0/2 UP y ARP de B5 vivo, pero `10.0.0.17` no responde ICMP de forma sostenida → `.13`/`.14` inalcanzables desde B1 y `.12/30` "muerto en caliente" (PENDIENTE DE CONFIRMACIÓN POR BANCO 5).
+* `/interbancaria` → implementado (ya no 404; ver sección Endpoint).
 * IOSv: segundo estático NAT con global `10.0.0.18` no persiste.
 * Limitación track line-protocol: no detecta caída de vecino con L1/L2 sano (ver "muerto en caliente" de `.12/30`).
 
@@ -167,9 +184,11 @@ Re-verificación 2026-09-08 post-restart (ping 2/2 con `repeat 2 timeout 2`, sal
 * 2026-09-08: **rearranque real limpio del nodo B1** para validar persistencia (CVAC CONFIG_FOUND/DONE desde flash2, sin parser errors; interfaces UP, tracks UP, rutas v8.1). Durante el apagado (~2 min) el anillo quedó sin tránsito ni presencia de B1; operación restaurada.
 * 2026-09-08: re-verificación del anillo post-restart → arco oeste completo OK (B1→B2→B3→B4, incl. `10.0.0.8/30` que antes daba `!H`); arco este B5 **flapeando** (PENDIENTE B5).
 * 2026-09-08: **config v8.2 — observación del anillo**: 5 IP SLAs (echo 5 s a `.2`/`.6`/`.10`/`.17`/`.13`) + tracks 3-7 (sin control de rutas) + 5 applets EEM `RING_SEG_*` que loguean transición por tramo. Persistida en config-disk y validada con rearranque limpio (CVAC CONFIG_DONE, sin `%PARSER`; EEM `%HA_EM-6-LOG: RING SEG ... track=up` en arco oeste; tracks 6-7 Down al no responder B5).
+* 2026-09-08: **Objetivo 1 — re-verificación B1-B5**: Gi0/2 UP/UP, track 2 UP, ruta conectada `10.0.0.16/30`, ARP `.17` presente (`ca01.aa69.001d`) pero ICMP **0% sostenido** y IP SLA 4/5 sin nuevos éxitos en ventana de 60 s. La intermitencia del arco este persiste (NO corregida: sin aprobación para cambios de red y el nivel de línea está sano).
+* 2026-09-08: **Objetivo 2 — endpoint `/interbancaria` implementado y probado** en `172.16.30.5:80` y publicado en `http://10.0.0.1:80/interbancaria` (despliegue offline del `web_server.py` vía `mydata.tgz`; disco del node convertido a qcow2 autocontenido `.bak_v9` como backup). Pruebas 200/400/404, saldo acreditado una vez por petición.
 
 ## Pendientes
-* Definir/implementar el endpoint `/interbancaria` y validarlo desde B2/B5.
+* Endpoint `/interbancaria` implementado y probado localmente; **pendiente** validación coordinada real desde B2/B3/B5 (sin transferencia interbancaria real por instrucción) y definir conciliación contable si el emisor envía `cuenta_origen` no local (solo eco por ahora).
 * Drill de failover autorizado (corte de 30 s por lado).
 * Confirmar con Banco 5 su estado (nodo sin responder en `10.0.0.17`/`.14` pese a enlace y track UP).
 * Revalidar conectividad ICMP hacia B1 desde B2/B3/B5 y actualización de `ESTADO_ANILLO.md` (B3) con el arco oeste sano.
@@ -179,4 +198,4 @@ Re-verificación 2026-09-08 post-restart (ping 2/2 con `repeat 2 timeout 2`, sal
 * **B2:** confirmar corrección del estado de sus tracks 4/6 (el tráfico B1→B4 vía `.8/30` YA transita por B2/B3; sus docs siguen listando Null0).
 * **B5:** POR FAVOR confirmar su nodo: desde B1 el enlace Gi0/2 está UP pero `10.0.0.17` no responde (0/2), afectando `.13`/`.14` y dejando `.12/30` "muerto en caliente". B5.md reportaba operatividad a las 17:43 UTC-6.
 * **B4:** por `.13` (interfaz hacia B5) inalcanzable desde el arco este; el `.10` (hacia B3) es alcanzable vía oeste. Confirmar sostenibilidad de su failover Track B2 (según su doc, DOWN) — el oeste ya devuelve tráfico.
-* **B2:** acceso interbancario publicado en `10.0.0.1:80` y `10.0.0.1:8080`. Estado de publicación JSON/API: PENDIENTE DE DEFINICIÓN (ver Servicios).
+* **B2:** acceso interbancario publicado en `10.0.0.1:80` → `172.16.30.5:80` (portal + endpoint `/interbancaria` implementado, ver sección Endpoint) y `10.0.0.1:8080` → `172.16.30.6:8080`.
