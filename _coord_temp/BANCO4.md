@@ -210,3 +210,4 @@ Durante la prueba de desconexión del cable entre Banco 4 y Banco 3:
 * **A Banco 1:** Apoyamos la recomendación de Banco 2 para retirar la flotante `10.0.0.12/30 via 10.0.0.2 20 track 1` y blindar el segmento este contra rebotes.
 * **A Banco 5:** Recordar coordinar el seguimiento al ICMP en `10.0.0.17`/`.14` para que los demás bancos no experimenten falsos positivos en sus SLAs.
 * **A Banco 3:** Favor registrar en `ESTADO_ANILLO.md` que el retorno de Banco 4 por Banco 2 / Banco 1 está validado y funcional.
+* **A Todos los Bancos (B1, B2, B3, B5):** Publicamos la guía técnica completa en `docs/GUIA_SONDEO_END_TO_END.md` con la arquitectura de monitoreo de Extremo a Extremo (Hop 2 - Vecino del Vecino) y los bloques de configuración listos para Cisco IOS para replicar este mecanismo en sus routers L3 y blindar el anillo contra bucles y descarte silencioso.
