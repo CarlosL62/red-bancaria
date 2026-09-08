@@ -5,9 +5,9 @@ Documento técnico oficial de la arquitectura, conectividad, enrutamiento, segur
 ---
 
 ## 1. Estado General
-* **Última actualización:** 2026-09-07 17:55 UTC-6
+* **Última actualización:** 2026-09-07 18:55 UTC-6 (Post-Cambio Banco 2 / Verificación Exitosa)
 * **Agente/responsable:** Banco 4 (Agente de Integración)
-* **Estado en el anillo:** Operativo en enlaces directos B4-B3 y B4-B5. Conectividad interbancaria confirmada hacia Banco 5, Banco 1 y Banco 2 vía B5.
+* **Estado en el anillo:** **100% OPERATIVO**. Tránsito convergente en ambos sentidos. Conectividad bidireccional confirmada con Banco 3, Banco 2, Banco 5 y Banco 1. Todos los tracks en estado **UP**.
 
 ---
 
@@ -24,7 +24,7 @@ Banco 4 se interconecta al anillo mediante dos enlaces físicos/lógicos dedicad
 
 ## 3. Vecinos Directos
 
-* **Banco 3 (`10.0.0.9`):** Conectividad directa por `eth3`. Estado L1/L2: **UP / UP**. RTT ~4-18 ms.
+* **Banco 3 (`10.0.0.9`):** Conectividad directa por `eth3`. Estado L1/L2: **UP / UP**. RTT ~5-18 ms.
 * **Banco 5 (`10.0.0.14`):** Conectividad directa por `eth4`. Estado L1/L2: **UP / UP**. RTT ~3-10 ms.
 
 ---
@@ -46,23 +46,23 @@ Banco 4 opera con una arquitectura de alta disponibilidad con doble ISP y router
 
 El nodo `INTERNET` gestiona el enrutamiento interbancario del kernel Linux mediante métricas (métrica 10 para caminos primarios, métrica 20 para flotantes de respaldo):
 
-### Rutas Primarias (Métrica 10)
+### Rutas Primarias Instaladas y Activas (Métrica 10)
 * `10.0.0.8/30`: Conectada directamente en `eth3` (`src 10.0.0.10`).
 * `10.0.0.12/30`: Conectada directamente en `eth4` (`src 10.0.0.13`).
-* `10.0.0.4/30`: `via 10.0.0.9 dev eth3 metric 10` (camino hacia B3 / B2).
-* `10.0.0.0/30`: `via 10.0.0.9 dev eth3 metric 10` (camino hacia B2 / B1 por la derecha).
-* `10.0.0.16/30`: `via 10.0.0.14 dev eth4 metric 10` (camino hacia B5 / B1 por la izquierda - **ACTIVA**).
-* `172.20.5.0/24`: `via 10.0.0.14 dev eth4 metric 10` (LAN de Banco 5 - **ACTIVA**).
+* `10.0.0.4/30`: `via 10.0.0.9 dev eth3 metric 10` (**ACTIVA PRIMARIA** - camino hacia B3 / B2).
+* `10.0.0.0/30`: `via 10.0.0.9 dev eth3 metric 10` (**ACTIVA PRIMARIA** - camino hacia B2 / B1 por la derecha).
+* `10.0.0.16/30`: `via 10.0.0.14 dev eth4 metric 10` (**ACTIVA PRIMARIA** - camino hacia B5 / B1 por la izquierda).
+* `172.20.5.0/24`: `via 10.0.0.14 dev eth4 metric 10` (**ACTIVA PRIMARIA** - LAN de Banco 5).
 
-### Rutas Flotantes de Respaldo (Métrica 20)
+### Rutas Flotantes de Respaldo en Standby (Métrica 20)
 * Respaldo por Banco 5 (`eth4`):
-  * `10.0.0.0/30 via 10.0.0.14 dev eth4 metric 20` (**ACTIVA** por failover de Track B2)
-  * `10.0.0.4/30 via 10.0.0.14 dev eth4 metric 20` (**ACTIVA** por failover de Track B2)
-  * `10.0.0.8/30 via 10.0.0.14 dev eth4 metric 20`
+  * `10.0.0.0/30 via 10.0.0.14 dev eth4 metric 20` (standby)
+  * `10.0.0.4/30 via 10.0.0.14 dev eth4 metric 20` (standby)
+  * `10.0.0.8/30 via 10.0.0.14 dev eth4 metric 20` (standby)
 * Respaldo por Banco 3 (`eth3`):
-  * `10.0.0.16/30 via 10.0.0.9 dev eth3 metric 20`
-  * `10.0.0.12/30 via 10.0.0.9 dev eth3 metric 20`
-  * `172.20.5.0/24 via 10.0.0.9 dev eth3 metric 20`
+  * `10.0.0.16/30 via 10.0.0.9 dev eth3 metric 20` (standby)
+  * `10.0.0.12/30 via 10.0.0.9 dev eth3 metric 20` (standby)
+  * `172.20.5.0/24 via 10.0.0.9 dev eth3 metric 20` (standby)
 
 ---
 
@@ -77,9 +77,9 @@ Banco 4 implementa un demonio supervisor continuo en Linux (`/etc/network/ip-sla
 | Sonda | Destino / Interfaz | Tipo de Monitoreo | Estado | Acción Asociada |
 |---|---|---|---|---|
 | **Track B3** | `10.0.0.9` por `eth3` | Vecino Directo | **UP** | Enlace B4-B3 sano. |
-| **Track B2** | `10.0.0.5` por `eth3` | Extremo a Extremo | **DOWN** | Al no responder B2 en `10.0.0.5` vía `eth3`, se retiraron `10.0.0.4/30` y `10.0.0.0/30` de `eth3`. Respaldo activo por `eth4`. |
+| **Track B2** | `10.0.0.5` por `eth3` | Extremo a Extremo | **UP** | B2 responde por `eth3` (RTT ~36-74 ms). Rutas primarias `10.0.0.4/30` y `10.0.0.0/30` activas por `eth3`. |
 | **Track B5** | `10.0.0.14` por `eth4` | Vecino Directo | **UP** | Enlace B4-B5 sano. |
-| **Track B1** | `10.0.0.18` por `eth4` | Extremo a Extremo | **UP** | B1 responde por `eth4` (~20 ms). Ruta primaria `10.0.0.16/30` activa. |
+| **Track B1** | `10.0.0.18` por `eth4` | Extremo a Extremo | **UP** | B1 responde por `eth4` (RTT ~20 ms). Ruta primaria `10.0.0.16/30` activa por `eth4`. |
 
 ---
 
@@ -112,133 +112,65 @@ Banco 4 implementa un demonio supervisor continuo en Linux (`/etc/network/ip-sla
 ## 10. Pruebas Recientes de Conectividad
 
 * Ping B4 a B3 (`10.0.0.9`): **100% OK** (RTT ~5-18 ms).
-* Ping B4 a B3 interfaz B2 (`10.0.0.6`): **100% OK** (RTT ~10-44 ms forzando salida `eth3`).
+* Ping B4 a B3 interfaz B2 (`10.0.0.6`): **100% OK** (RTT ~28-39 ms directo por `eth3`).
+* Ping B4 a B2 interfaz B3 (`10.0.0.5`): **100% OK** (RTT ~36-74 ms vía B3 por `eth3`).
+* Ping B4 a B2 interfaz B1 (`10.0.0.2`): **100% OK** (RTT ~30 ms vía `eth3` o failover vía B5).
 * Ping B4 a B5 (`10.0.0.14`): **100% OK** (RTT ~3-9 ms).
 * Ping B4 a B5 interfaz B1 (`10.0.0.17`): **100% OK** (RTT ~4-10 ms).
 * Ping B4 a B1 (`10.0.0.18`, `10.0.0.1`): **100% OK** (RTT ~20 ms vía B5).
-* Ping B4 a B2 (`10.0.0.2`): **100% OK** (RTT ~30 ms vía B5 -> B1 -> B2).
-* Ping B4 a B2 (`10.0.0.5`): **0% (FAIL - Timeout)** vía `eth3`.
 
 ---
 
-## 11. Análisis del Bucle Reportado hacia `10.0.0.0/30`
+## 11. Diagnóstico y Extinción del Bucle en `10.0.0.4/30`
 
-Banco 3 reportó haber observado un bucle cerrado entre Banco 4 y Banco 5 hacia `10.0.0.0/30`:
-
-### Diagnóstico Técnico del Bucle:
-1. **Ruta primaria configurada en B4:** `10.0.0.0/30 via 10.0.0.9 dev eth3 metric 10` (apunta a Banco 3).
-2. **Next-hop primario:** `10.0.0.9` (Banco 3).
-3. **Ruta de respaldo en B4:** `10.0.0.0/30 via 10.0.0.14 dev eth4 metric 20` (apunta a Banco 5).
-4. **Mecanismo que disparó el bucle:**
-   * Banco 2 (`10.0.0.5`) dejó de contestar sondas ICMP.
-   * El supervisor IP SLA de Banco 4 declaró `Track B2: DOWN` y retiró la ruta primaria por `eth3`.
-   * El tráfico hacia `10.0.0.0/30` conmutó automáticamente a la ruta flotante por `eth4` hacia Banco 5 (`10.0.0.14`).
-   * **Simultáneamente:** Banco 1 (`10.0.0.18`) estaba caído o inalcanzable desde Banco 5.
-   * Banco 5, al tener caído su enlace primario a B1, conmutó su ruta de `10.0.0.0/30` a su ruta flotante de respaldo que **apuntaba hacia Banco 4 (`10.0.0.13`)**.
-   * **Bucle resultante:** B4 reenvió a B5, y B5 reenvió a B4 (`10.0.0.10 -> 10.0.0.14 -> 10.0.0.13 -> 10.0.0.14...`), generando un bucle cerrado hasta agotar el TTL.
-5. **Mitigación y Estado Actual:**
-   * El bucle solo ocurre cuando se produce una **doble falla simultánea** (B1 caído en la izquierda Y B2 caído en la derecha).
-   * **En este momento el bucle NO existe**, puesto que Banco 1 recuperó conectividad con Banco 5: Banco 5 reenvía el tráfico hacia Banco 1 en vez de regresarlo a Banco 4.
+### Estado: **EXTINGUIDO / RESUELTO (NO ACTIVO)**
+* **Causa original del bucle:** Banco 2 no tenía ruta fija hacia `10.0.0.8/30`, lo que provocaba que su Track 4 estuviera DOWN y descartara el tráfico de B4. El SLA de B4 detectaba a B2 en DOWN y enviaba `10.0.0.4/30` por su flotante a B5 (`10.0.0.14`). A su vez, B5 mantenía su ruta primaria hacia B4 (`10.0.0.13`), generando el rebote cerrado.
+* **Resolución:** Tras la aplicación en Banco 2 de la ruta fija `10.0.0.8/30 via 10.0.0.6`:
+  1. Banco 2 comenzó a responder inmediatamente a las sondas de B4 en `10.0.0.5`.
+  2. El Track B2 en Banco 4 pasó automáticamente a **`UP`**.
+  3. Banco 4 restauró la ruta primaria `10.0.0.4/30 via 10.0.0.9 dev eth3 metric 10`.
+  4. El tráfico hacia `10.0.0.4/30` viaja ahora directamente hacia Banco 3 (`eth3`) y **ya no se envía a Banco 5**.
+  5. El bucle B4-B5 quedó 100% extinguido.
 
 ---
 
-## 12. Verificación Global del Anillo
+## 12. Verificación Post-Cambio Banco 2 (Confirmación Oficial)
 
-### A. Vecinos Directos
-* **Vecino 1 (Banco 3):** `10.0.0.9` por `eth3` -> **100% OK** (RTT avg: 18.0 ms).
-* **Vecino 2 (Banco 5):** `10.0.0.14` por `eth4` -> **100% OK** (RTT avg: 6.3 ms).
+### 1. Alcance a `10.0.0.5` y `10.0.0.6`
+* **Destino `10.0.0.5` (Banco 2):** **ALCANZABLE (100% OK)**. 2/2 paquetes recibidos, RTT avg: 55.6 ms.
+* **Destino `10.0.0.6` (Banco 3):** **ALCANZABLE (100% OK)**. 2/2 paquetes recibidos, RTT avg: 34.4 ms.
 
-### B. Todas las Redes /30 del Anillo
-* **Red `10.0.0.0/30` (B1-B2):**
-  * Destinos probados: `10.0.0.1` (B1) y `10.0.0.2` (B2).
-  * Alcanzable: **SÍ**.
-  * Ruta activa: `10.0.0.0/30 via 10.0.0.14 dev eth4 metric 20` (conmutada por failover vía B5).
-  * Next-hop: `10.0.0.14` (Banco 5).
-  * RTT / Saltos: ~20 ms hacia `10.0.0.1` (2 saltos) / ~30 ms hacia `10.0.0.2` (3 saltos: B4 -> B5 -> B1 -> B2).
-* **Red `10.0.0.4/30` (B2-B3):**
-  * Destinos probados: `10.0.0.5` (B2 hacia B3) / `10.0.0.6` (B3 hacia B2).
-  * Alcanzable: **NO** hacia `10.0.0.5` desde B4. (`10.0.0.6` responde en B3 forzando `eth3`, pero la ruta general está conmutada hacia B5 donde no hay entrega a `.5`).
-  * Ruta activa: `10.0.0.4/30 via 10.0.0.14 dev eth4 metric 20`.
-  * Next-hop: `10.0.0.14` (Banco 5).
-  * Traceroute resumido: B4 (`10.0.0.13`) -> B5 (`10.0.0.14`) -> timeout (*).
-* **Red `10.0.0.8/30` (B3-B4):**
-  * Destino probado: `10.0.0.9` (B3).
-  * Alcanzable: **SÍ**.
-  * Ruta activa: `10.0.0.8/30 dev eth3 proto kernel scope link src 10.0.0.10`.
-  * Next-hop: Directo (`eth3`).
-  * RTT: ~5 ms (1 salto).
-* **Red `10.0.0.12/30` (B4-B5):**
-  * Destino probado: `10.0.0.14` (B5).
-  * Alcanzable: **SÍ**.
-  * Ruta activa: `10.0.0.12/30 dev eth4 proto kernel scope link src 10.0.0.13`.
-  * Next-hop: Directo (`eth4`).
-  * RTT: ~3 ms (1 salto).
-* **Red `10.0.0.16/30` (B5-B1):**
-  * Destinos probados: `10.0.0.17` (B5) y `10.0.0.18` (B1).
-  * Alcanzable: **SÍ**.
-  * Ruta activa: `10.0.0.16/30 via 10.0.0.14 dev eth4 metric 10`.
-  * Next-hop: `10.0.0.14` (Banco 5).
-  * RTT: ~20 ms (2 saltos: B4 -> B5 -> B1).
+### 2. Estado de Tracks B2 / B3
+* **Track B3 (`10.0.0.9` por `eth3`):** **UP** (100% operativo).
+* **Track B2 (`10.0.0.5` por `eth3`):** **UP** (Recuperado tras cambio en B2).
 
-### C. Routing y Rutas Activas
-* **Rutas primarias (Métrica 10):**
-  * `10.0.0.8/30 dev eth3` (directa)
-  * `10.0.0.12/30 dev eth4` (directa)
-  * `10.0.0.4/30 via 10.0.0.9 dev eth3 metric 10` (Track B2)
-  * `10.0.0.0/30 via 10.0.0.9 dev eth3 metric 10` (Track B2)
-  * `10.0.0.16/30 via 10.0.0.14 dev eth4 metric 10` (Track B1 - **ACTIVA**)
-  * `172.20.5.0/24 via 10.0.0.14 dev eth4 metric 10` (LAN B5 - **ACTIVA**)
-* **Rutas flotantes (Métrica 20):**
-  * `10.0.0.0/30 via 10.0.0.14 dev eth4 metric 20` (**ACTIVA** por failover de Track B2)
-  * `10.0.0.4/30 via 10.0.0.14 dev eth4 metric 20` (**ACTIVA** por failover de Track B2)
-  * `10.0.0.8/30 via 10.0.0.14 dev eth4 metric 20`
-  * `10.0.0.16/30 via 10.0.0.9 dev eth3 metric 20`
-  * `10.0.0.12/30 via 10.0.0.9 dev eth3 metric 20`
-  * `172.20.5.0/24 via 10.0.0.9 dev eth3 metric 20`
-* **Rutas actualmente instaladas en FIB del kernel:**
-  * `10.0.0.0/30 via 10.0.0.14 dev eth4 metric 20`
-  * `10.0.0.4/30 via 10.0.0.14 dev eth4 metric 20`
-  * `10.0.0.8/30 dev eth3 proto kernel scope link src 10.0.0.10`
-  * `10.0.0.12/30 dev eth4 proto kernel scope link src 10.0.0.13`
-  * `10.0.0.16/30 via 10.0.0.14 dev eth4 metric 10`
-  * `172.20.5.0/24 via 10.0.0.14 dev eth4 metric 10`
-* **Retorno hacia el banco emisor:** Ninguna ruta de B4 devuelve tráfico hacia el mismo banco del que provino en operación normal.
+### 3. Ruta Activa hacia `10.0.0.4/30`
+* **Ruta en FIB:** `10.0.0.4/30 via 10.0.0.9 dev eth3 metric 10`
+* **Next-Hop:** `10.0.0.9` (Banco 3 vía `eth3`).
+* **Estado:** Primaria activa. Flotante `via 10.0.0.14 dev eth4 metric 20` en standby.
 
-### D. IP SLA / Tracks
-* **Track B3 (10.0.0.9 vía eth3):** **UP** (coincide con conectividad real; RTT ~5 ms).
-* **Track B2 (10.0.0.5 vía eth3):** **DOWN** (coincide con conectividad real; B2 no responde por Fa3/0 a pings de B4). Controla primarias de `10.0.0.4/30` y `10.0.0.0/30`.
-* **Track B5 (10.0.0.14 vía eth4):** **UP** (coincide con conectividad real; RTT ~3 ms).
-* **Track B1 (10.0.0.18 vía eth4):** **UP** (coincide con conectividad real; B1 restableció conectividad, RTT ~20 ms). Controla primaria de `10.0.0.16/30`.
+### 4. Bucle B4-B5
+* **¿El tráfico sigue rebotando entre B4 y B5?:** **NO**. El bucle está totalmente resuelto. El tráfico con destino a `10.0.0.4/30` sale directamente por `eth3` hacia Banco 3.
 
-### E. Evaluación de Failover y Loops Potenciales
-* **Comportamiento de Failover:**
-  * El failover de B2 hacia B5 está **operativo**: B4 alcanza `10.0.0.2` (B2) a través de B5 y B1 con RTT de 30 ms.
-  * El failover de B1 hacia B3 apunta a `10.0.0.9 dev eth3`.
-* **Riesgo de Loop Detectado:**
-  * **Red afectada:** `10.0.0.0/30`
-  * **Bancos implicados:** Banco 4 y Banco 5.
-  * **Secuencia:** Ocurre exclusivamente ante **doble falla simultánea** (B1 caído en el oeste Y B2 caído en el este). Si B1 cae, B5 conmuta a B4 (`10.0.0.13`); si B2 cae, B4 conmuta a B5 (`10.0.0.14`). El tráfico rebota B4 <-> B5 hasta expirar TTL.
-  * **Estado actual:** **INACTIVO / NO OCURRE**, ya que el enlace B5-B1-B2 está arriba y B5 no está devolviendo el tráfico a B4.
+### 5. Traceroutes Confirmatorios
+* **Traceroute a `10.0.0.6` (Banco 3):**
+  ```text
+  traceroute to 10.0.0.6 (10.0.0.6), 5 hops max, 46 byte packets
+   1  10.0.0.9 (10.0.0.9)  10.033 ms  30.648 ms  40.660 ms
+  ```
+  *(1 salto directo a Banco 3).*
 
-### F. Servicios Interbancarios Probados
-* **Banco 2 (`10.0.0.2:5001`):**
-  * Puerto: `5001` (TCP)
-  * Resultado: **EXITOSO / OPEN** (puerto abierto, validado vía TCP desde B4 cruzando B5 y B1).
-* **Banco 3 (`10.0.0.9:80`):**
-  * Puerto: `80` (TCP)
-  - Resultado: **TIMEOUT** (acorde a diseño de seguridad de B3, el puerto 80 público está filtrado en tránsito).
-* **Banco 4 (Servicio propio expuesto):**
-  * API Blacklist: `http://10.0.0.10:8080/blacklist` y `http://10.0.0.13:8080/blacklist` (100% operativo).
-
-### G. Problemas Pendientes
-1. **Track B2 en DOWN por `eth3`:** Banco 2 tiene su `Track 4 (B4 vía B3)` en DOWN según su documentación, lo que hace que su ruta `10.0.0.8/30 via 10.0.0.6` no se instale y descarte respuestas directas por Fa3/0 hacia `Null0`.
-2. Restablecer la alcanzabilidad directa B4-B3-B2 para que B4 regrese sus rutas primarias a `eth3`.
+* **Traceroute a `10.0.0.5` (Banco 2):**
+  ```text
+  traceroute to 10.0.0.5 (10.0.0.5), 5 hops max, 46 byte packets
+   1  10.0.0.9 (10.0.0.9)  29.855 ms  30.545 ms  30.315 ms
+   2  10.0.0.5 (10.0.0.5)  61.282 ms  60.806 ms  61.230 ms
+  ```
+  *(2 saltos limpios: B4 -> B3 -> B2).*
 
 ---
 
 ## 13. Notas para Otros Bancos
 
-* **A Banco 2:** Por favor verificar en su router:
-  `ip route 10.0.0.8 255.255.255.252 10.0.0.6`
-  Sin esta ruta, Banco 2 no puede responder a las solicitudes directas de Banco 4 por Fa3/0.
-* **A Banco 5:** Confirmar cómo maneja su ruta flotante hacia `10.0.0.0/30` cuando B1 está caído para evitar rebotes hacia `10.0.0.13`.
+* **A Banco 2 y Banco 3:** Confirmado el éxito del Paso 1. Los tracks y rutas primarias de Banco 4 están 100% convergidos y alineados por el camino este (`eth3`).
+* **A Banco 5:** Confirmado que Banco 4 ya no envía tráfico hacia `10.0.0.4/30` por `eth4`. El bucle cerrado quedó desactivado.
