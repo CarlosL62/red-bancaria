@@ -96,16 +96,23 @@ Banco 4 implementa un demonio supervisor continuo en Linux (`/etc/network/ip-sla
 
 ---
 
-## 9. Servicios Interbancarios Publicados
+## 9. Servicios Interbancarios Publicados y Consumo (Soporte Dual-Interface y Failover)
 
 * **Servicio de Lista Negra (Blacklist):**
   * Servidor Flask en puerto `8080` (publicado por DNAT hacia `192.168.43.20:8080`).
-  * URLs de acceso:
-    * Desde Banco 3: `http://10.0.0.10:8080/blacklist`
-    * Desde Banco 5: `http://10.0.0.13:8080/blacklist`
-    * Healthcheck: `http://10.0.0.10:8080/health`
-* **Consumo de Servicios:**
-  * Banco 4 consume el servicio de depósitos de Banco 2 en `http://10.0.0.2:5001/interbanco/deposito` (probado exitosamente, puerto 5001 validado abierto).
+  * **Soporte de Entrada por Ambas Caras (Dual-Homed / Failover):**
+    * **Cara Este / Derecha (`eth3`):** `http://10.0.0.10:8080/blacklist` (acceso directo para B3 y B2).
+    * **Cara Oeste / Izquierda (`eth4`):** `http://10.0.0.13:8080/blacklist` (acceso directo para B5 y B1).
+    * **Healthchecks:** `http://10.0.0.10:8080/health` y `http://10.0.0.13:8080/health` (ambos activos y validados con `{"service":"SRV-ARCHIVOS Banco 4","status":"ok"}`).
+  * **Comportamiento ante Failover:**
+    * Si el enlace B4-B3 (`eth3`) está caído, cualquier banco puede acceder a la blacklist a través de `eth4` consultando `10.0.0.13:8080` (o `10.0.0.10:8080`), y el router `INTERNET` envía la respuesta por `eth4` según la tabla de rutas conmutada.
+    * Si el enlace B4-B5 (`eth4`) está caído, cualquier banco puede acceder a la blacklist a través de `eth3` consultando `10.0.0.10:8080` (o `10.0.0.13:8080`), y el retorno fluye por `eth3`.
+    * Regla de DNAT universal en `INTERNET` (`iifname { "eth3", "eth4" } tcp dport 8080 dnat to 200.4.1.2:8080`), garantizando que Banco 3 (`10.0.0.9`), Banco 5 (`10.0.0.14`), Banco 2, Banco 1 y sus subredes internas sean atendidos sin rechazo TCP.
+* **Consumo de Servicios Externos por Banco 4:**
+  * Banco 4 consume el servicio de depósitos de Banco 2 en `http://10.0.0.2:5001/interbanco/deposito`.
+  * **Salida Dinámica por Ambas Interfaces:**
+    * En estado normal (anillo sano): el tráfico hacia `10.0.0.2` sale por `eth3` (Banco 3).
+    * En estado de failover (corte de `eth3`): el demonio IP SLA conmuta automáticamente a `eth4` (Banco 5), saliendo con masquerade nativo por `eth4` hacia `10.0.0.14 → 10.0.0.18 → 10.0.0.2:5001`. Probado exitosamente en vivo.
 
 ---
 
