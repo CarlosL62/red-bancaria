@@ -220,8 +220,37 @@ Verificación 2026-09-07 (pre Paso 1) y 2026-09-08 (post Paso 1), desde R-WAN.
 * Confirmar estabilización de la respuesta ICMP de B5 (B1/B5).
 * Confirmar servicio publicado (`10.20.1.34:5001`) y endpoint `/interbancaria`.
 
-## Notas para otros bancos
-* **Banco 1 (acción solicitada):** retirar/hundir su flotante `10.0.0.12/30 via 10.0.0.2 20 track 1`. B2 ya usa `track 1` en `.12/30` (petición de B4); sin ese cambio, si el enlace este de B1 (Gi0/2→B5) cae a L2 habría rebote B1↔B2 (mismo criterio que el fix v8.1 de B1 sobre `.16/30`).
-* **Banco 4:** cambio de retorno de B2 aplicado (`10.0.0.12/30 via 10.0.0.1 track 1`); queda listo el camino de respuesta de su drill por el arco este. Re-probar con el anillo estable.
-* **Banco 5:** estabilizar la respuesta ICMP (`10.0.0.17`/`.14`), raíz del tapón del drill de B4 — lo re-porta también B1.
-* **Banco 3:** B2 ya enruta y responde `10.0.0.8/30` vía `10.0.0.6` (ruta fija).
+## Mensajes / peticiones para otros bancos (2026-09-08)
+
+### → Banco 4 (solicitante del cambio)
+Aplicado en R-WAN el retorno que pediste:
+```
+no ip route 10.0.0.12 255.255.255.252 10.0.0.1 track 5
+ip route 10.0.0.12 255.255.255.252 10.0.0.1 track 1
+write memory
+```
+* **Qué:** la primaria `10.0.0.12/30` pasó de depender de `track 5` (AND "B1 vivo **y** B5 vía B1") a depender solo de `track 1` (B1 directo). Verificado: RIB `10.0.0.12/30 [1/0] via 10.0.0.1` (instalada, ya no cae a `Null0`).
+* **Por qué:** en tu drill del cable B4-B3, tu tráfico da la vuelta por el este (B5 → B1 → B2) con origen `10.0.0.13`. Como B5 no responde ICMP de forma sostenida, el track 5 se caía y B2 descartaba tus respuestas en `Null0` → el retorno moría en B1. El track 1 solo exige a B1, el vecino directo por donde vuelve tu tráfico.
+* **Por qué es la solución correcta:** el anillo no tiene "entradas principales"; cada cara es entrada y salida y debe quedar lista siempre. Dejar el retorno de `10.0.0.12/30` rehén del ICMP de un nodo lejano viola ese principio. Con track 1, B1 escolta el retorno con su propia tabla (`10.0.0.12/30 via 10.0.0.17 track 2` + ARP vivo), sin depender de que B5 conteste ping.
+* **Solicitud:** re-probar con el anillo estable que el traceroute a `10.0.0.5` complete los 4 saltos (`.14 → .18 → .2 → .5`).
+
+### → Banco 1 (acción solicitada)
+* **Qué:** `10.0.0.12/30` en B2 pasó de `track 5` a `track 1` (B1 directo), por petición de B4. Confirmé tu config: `10.0.0.12/30 via 10.0.0.17 track 2` con Gi0/2 UP y ARP vivo, así que puedes escoltar el retorno del drill de B4 aunque B5 no conteste ICMP. Es el mismo criterio que ya usa `.16/30`.
+* **Por qué:** tu diagnóstico era correcto: el tapón del drill de B4 era el `track 5` de B2 (AND B1 + B5-vía-B1), rehén de la flake ICMP de B5. Lo corrijo dejando la ruta dependiente solo del vecino directo (B1).
+* **Por qué es la solución correcta:** es el cambio mínimo que arregla el retorno de B4 **sin tocar** tus rutas, sin Null0, sin SLAs nuevos y sin loops. Ambas caras del anillo quedan listas permanentemente.
+* **Tu parte (para dejarla a prueba de rebotes):** retirar/hundir tu flotante
+  ```
+  no ip route 10.0.0.12 255.255.255.252 10.0.0.2 20 track 1
+  ```
+  Si tu enlace este (Gi0/2 → B5) cae a L2 con la config actual, esa flotante devuelve `.12/30` a B2, y B2 (con track 1) se lo regresa a ti → **rebote B1↔B2**. Es el mismo mecanismo del loop que ya eliminaste en v8.1 con el wrap `.16/30`. Con tu línea fuera, en caída este el paquete muere en tu router con ICMP unreachable y el anillo nunca devuelve tráfico a su origen.
+
+### → Banco 5 (causa raíz)
+* **Qué:** B2 cambió `10.0.0.12/30` de `track 5` (AND B1 + B5-vía-B1) a `track 1` (B1 directo). Este cambio **enmascara** la causa raíz: tu nodo no responde ICMP de forma sostenida (`10.0.0.17`/`.14`), y eso tumbaba el track de B2, que descartaba el retorno hacia `10.0.0.13` en `Null0` — rompiendo el drill del retorno este.
+* **Por qué conviene:** el anillo entrega IP + ARP vivo pero no contesta sondas (B1 reporta 0% a `.17`, IP SLA 4/5 sin éxitos pese a Link UP). Dejar el retorno de un segmento dependiente de tu ICMP no es sostenible.
+* **Solicitud:** estabilizar la respuesta ICMP en `10.0.0.17` y `10.0.0.14` (revisar rate-limit/ACL/forward, o el retorno de tus respuestas cayendo a otra ruta). Con tu ICMP estable se desbloquea de raíz el tramo este y los tracks del grupo dejan de flapear.
+
+### → Banco 3 (coordinador)
+Para tu consolidación de ESTADO_ANILLO:
+* **Cambio B2 (2026-09-08):** primaria `10.0.0.12/30` de `track 5` (AND B1 + B5-vía-B1) a `track 1` (B1 directo), petición de B4 para el retorno de su drill. Verificado RIB `[1/0] via 10.0.0.1`, persistido.
+* **Impacto matriz:** `.12/30` ahora siempre enrutable desde B2 por B1. Para que sea a prueba de rebotes, B1 debe retirar su flotante `10.0.0.12/30 via 10.0.0.2 20 track 1` (misma lógica que su fix v8.1 de `.16/30`) — ya se lo solicitó. Pedido: reflejar ambos puntos (cambio B2 + acción pendiente B1) en la consolidación.
+* **Contexto adicional:** B2 ya enruta y responde `10.0.0.8/30` vía `10.0.0.6` (ruta fija, Paso 1).
