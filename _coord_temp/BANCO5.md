@@ -1,5 +1,18 @@
 # Banco 5 (Banco con Segmentación Interna Avanzada)
 
+## Verificación POST-CAMBIO (2026-09-07 18:53 UTC-6) — Loop `10.0.0.4/30` EXTINGUIDO
+
+Verificación solicitada tras el cambio de Banco 2 (ruta fija `10.0.0.8/30 via 10.0.0.6`) y la recuperación de ambos tracks de Banco 3. Solo lectura, sin cambios de configuración.
+
+* **Alcance `10.0.0.5` (B2):** ✅ **SÍ** — ping 100% (5/5), RTT 28-60 ms.
+* **Alcance `10.0.0.6` (B3):** ✅ **SÍ** — ping 100% (5/5), RTT 12-40 ms. *(Antes del cambio de Banco2: 0%, en loop.)*
+* **Track relacionado (track 1, SLA1 → `10.0.0.13`):** **Up**, sin cambios de estado en las últimas ~12 min — nunca detectó el loop porque monitorea el next-hop directo (Banco4), no el destino final (ver nota de diseño ya documentada). El loop se resolvió del lado de Banco4 (su Track B2 volvió a Up), no por acción de Banco5.
+* **Ruta activa hacia `10.0.0.4/30`:** `via 10.0.0.13`, **distancia 1 (primaria/estática)**, sin cambios respecto a antes — nuestra config nunca cambió, el problema y su resolución estaban del lado de Banco4/Banco2.
+* **Traceroute a `10.0.0.6`:** `10.0.0.13 (8-12ms) → 10.0.0.9 (12-28ms)` — **2 saltos limpios, sin rebote**. Antes del cambio: rebote infinito `10.0.0.13 ↔ 10.0.0.14` hasta agotar TTL (13+ saltos capturados sin llegar a destino).
+* **¿El tráfico sigue rebotando entre B4 y B5?** **NO.** Loop confirmado extinguido con evidencia directa (traceroute limpio + ping 100% en ambos extremos de `10.0.0.4/30`).
+
+---
+
 ## Verificación global del anillo
 Verificación diagnóstica (2026-09-07 18:xx UTC-6, solo lectura, sin cambios de red) ejecutada desde el router de B5 contra toda la topología del anillo.
 
