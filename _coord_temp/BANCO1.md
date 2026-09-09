@@ -21,7 +21,7 @@ Agente/responsable: Agente Banco 1
 * ACL **`SSH-L3-SEDE`** (extended, aplicada **out** en Gi0/0.10, Gi0/0.20, Gi0/0.30 de Router-1 y Router-2): `permit tcp host 172.16.20.4` → cada segmento de la sede (`172.16.10.0/28`, `172.16.20.0/24`, `172.16.30.0/29`) `eq 22`; `deny tcp any` → esos tres `eq 22`; `permit ip any any` (no interfiere el tráfico de negocio).
 * ACL **`SSH-L3-SUC`** (extended, aplicada **out** en Gi0/0.40 y Gi0/0.50 de Router-sucursal): `permit tcp host 172.16.20.4` → `172.16.40.0/28` y `172.16.50.0/24` `eq 22`; `permit tcp host 172.16.50.3` → `172.16.40.0/28` y `172.16.50.0/24` `eq 22`; `deny tcp any` → ambos `eq 22`; `permit ip any any`.
 * SVI de gestión en switches: Switch-sede `Vlan20 172.16.20.10/24` (gw `172.16.20.1`); Switch-sucursal `Vlan50 172.16.50.10/24` (gw `172.16.50.1`).
-* **PCs admin identificados:** admin-sede = `172.16.20.4` (consola GNS3 5028); admin-sucursal = `172.16.50.3` (MAC `0ca6.4674.0000`, VNC); caja-sucursal = `172.16.40.3` (MAC `0c8b.b62d.0000`).
+* **PCs admin identificados:** admin-sede = `172.16.20.4` (consola GNS3 5028); admin-sucursal = `172.16.50.3` (MAC `0ca6.4674.0000`, shell vía SSH tc@.50.3); caja-sucursal = `172.16.40.3` (MAC `0c8b.b62d.0000`, VNC).
 * **Cliente SSH en los PCs admin (verificado, SIN inyección):**
   * admin-sede: `openssh` instalado vía `tce-load -wi openssh` (mirror `https://mirrors.dotsrc.org/tinycorelinux/`); `/usr/local/bin/ssh`, `scp`, `ssh-keygen` presentes (OpenSSH_6.7p1).
   * admin-sucursal: el disco base `linux-tinycore-11.1.qcow2` **ya incluye `openssh.tcz` en `/tce/onboot.lst`** y la partición persistente (`mydata.tgz`) arranca sshd con IP `172.16.50.3` y gw `172.16.50.1` → cliente SSH disponible sin cambio.
@@ -39,11 +39,15 @@ Agente/responsable: Agente Banco 1
 | 7 | admin-sede → Servidor-web (.30.5) | PERMITIDO | **PARCIAL** (nc RC=0/banner; login real usa credenciales OS TinyCore del host, no `admin` — servicio Linux, fuera del alcance IOS) |
 | 8 | Router-1 (172.16.20.2) → Switch-sede / R2 / Router-salida / Servidor-web / Switch-suc | DENEGADO | **OK** (todo DENEGADO — origen router no permitido) |
 | 9 | Router-sucursal (172.16.50.1) → Switch-suc / Caja-suc | DENEGADO | **OK** (DENEGADO) |
-| 10 | admin-sucursal (172.16.50.3) → Switch-suc / Router-suc (sucursal) | PERMITIDO | **PENDIENTE DE CONFIRMACIÓN** (cliente+ACL verificados en disco y ACL `permit host .50.3` instalada; login real desde la consola VNC de admin-sucur no ejecutado) |
+| 10 | admin-sucursal (172.16.50.3) → Switch-suc (.50.10) / Router-suc (.50.1) | PERMITIDO | **OK** (login SSH real admin/4170 desde la shell del OS de admin-sucursal → prompt `Switch-sucursal-1#`/`Router-sucursal-1#` + `show clock` OK en ambos) |
 | 11 | caja-sede / caja-sucursal / servidor → SSH | DENEGADO | **OK** (ACL host-based: solo `.20.4`/`.50.3` permitidos) |
+| 12 | admin-sucursal (172.16.50.3) → Servidor-web sede (.30.5) | DENEGADO | **OK** (`No route` — SSH-L3-SEDE en Router-1; jamás se solicitó password) |
+| 13 | admin-sucursal (172.16.50.3) → Switch-sede (.20.10) | DENEGADO | **OK** (`No route` — SSH-L3-SEDE en Router-1; jamás se solicitó password) |
 
 ### Notas de validación
 * Login SSH desde admin-sede contra los 6 IOS con password 4170: **OK en los 6** (entrada directa a prompt `#` por privilege 15 + `show clock` ejecutado). Confirmado tras el rearranque v8.6 del Router-salida.
+* **Acceso al shell de admin-sucursal (172.16.50.3):** la consola serial del nodo (telnet 5012) bootea a GUI sin getty → shell del OS alcanzada vía `ssh tc@172.16.50.3` desde admin-sede (credenciales OS TinyCore `tc`/`tc`). Desde esa shell se ejecutaron los SSH reales con origen `.50.3`.
+* **Validación admin-sucursal completa (2026-09-09):** `.50.3` → `.50.10`/`.50.1` LOGIN OK (`#` + `show clock`); `.50.3` → `.30.5`/`.20.10` DENEGADO (`No route`, SSH-L3-SEDE de Router-1). Cierra el PENDIENTE de confirmación de acceso de la sucursal.
 * El tráfico **originado por el propio router NO atraviesa sus ACLs outbound en IOS** (los casos origen-router se validaron transitando y/o con routers remotos; coherente con la matriz).
 
 ## Verificación global del anillo
@@ -295,7 +299,7 @@ Re-verificación 2026-09-08 post-restart (ping 2/2 con `repeat 2 timeout 2`, sal
 * 2026-09-08 (~21:10 UTC-6): **verificación saliente B2 desde el propio `Servidor-web`** (comandos reales vía shell, script `sh d`): ruta default `172.16.30.1` (FW interno) OK, red local `172.16.30.0/29`. **`10.0.0.2:5001` NO alcanzable**: ping `10.0.0.2` 100% pérdida, `nc 10.0.0.2 5001` rc=1, `wget http://10.0.0.2:5001/health` timeout. Confirma con evidencia desde adentro el pendiente ya documentado (depende del FORWARD del FW interno hacia el anillo / NAT del Router-salida). PENDIENTE DE CONFIRMACIÓN POR BANCO 1 y BANCO 2 (estado del servicio `10.20.1.34:5001`).
 
 ## Pendientes
-* Validación final de acceso desde admin-sucursal (172.16.50.3): cliente SSH verificado en disco y ACL `permit host 172.16.50.3` instalada, pero **login SSH real desde la consola VNC de admin-sucursal no ejecutado** (PENDIENTE DE CONFIRMACIÓN interno).
+* ~~Validación de acceso desde admin-sucursal (172.16.50.3)~~ **CERRADO 2026-09-09**: login SSH real OK hacia sucursal (`.50.10`/`.50.1`) y denegaciones a sede (`.30.5`/`.20.10`) verificadas con shell del OS (ver matriz filas 10/12/13).
 * Endpoint `/interbancaria` implementado y probado localmente; **pendiente** validación coordinada real desde B2/B3/B5 (sin transferencia interbancaria real por instrucción) y definir conciliación contable si el emisor envía `cuenta_origen` no local (solo eco por ahora).
 * Drill de failover autorizado (corte de 30 s por lado) — ahora el failover es E2E (tracks 10/20) y el anclaje de sondas es PBR (v8.4). **Re-drill pendiente** con el corte B5-B4 para confirmar que el tráfico real a `10.0.0.13` YA conmuta al oeste (en v8.3 quedaba secuestrado por la `/32`); el primer salto esperado ahora es `10.0.0.2`.
 * B5 confirmado respondiendo en la última validación (ICMP `.17`/`.13` 100%, tracks 6/7/20 Up post-boot v8.3) y su doc reporta E2E Hop-2 activo — **cerrado el PENDIENTE previo** de "B5 mudo"; si reaparece la flake, condiciona el track 20 (E2E este).
