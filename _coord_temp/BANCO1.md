@@ -1,7 +1,7 @@
 # Banco 1 (Banca minorista con sucursales)
 
 ## Estado
-Última actualización: 2026-09-09 (config v8.6 persistida: **política SSH refinada host-based "solo PCs admin"** — ACLs por host exacto + password de gestión rotado + cliente SSH verificado en ambos PCs admin + configuración persistida en config-disk master `IOSv_startup_config.img` v8.6 y validada con rearranque real del nodo). Sin cambios de red (NAT/rutas/tracks/servicios intactos).
+Última actualización: 2026-09-09 (config v8.6 persistida: **política SSH refinada host-based "solo PCs admin"** — ACLs por host exacto + password de gestión rotado + cliente SSH verificado en ambos PCs admin + configuración persistida en config-disk master `IOSv_startup_config.img` v8.6 y validada con rearranque real del nodo). **Cajas de caja operativas con Firefox y usuario OS `admin` (sede `.10.4` y sucursal `.40.3`)** — re-imagen de la sucursal a TC6+Firefox y endurecimiento de la imagen sede (identidad autocontenida). Sin cambios de red (NAT/rutas/tracks/servicios intactos).
 Agente/responsable: Agente Banco 1
 
 ## Política de acceso SSH (SOLO PCs de administración) — REFINADA y APLICADA 2026-09-09
@@ -49,6 +49,15 @@ Agente/responsable: Agente Banco 1
 * **Acceso al shell de admin-sucursal (172.16.50.3):** la consola serial del nodo (telnet 5012) bootea a GUI sin getty → shell del OS alcanzada vía `ssh tc@172.16.50.3` desde admin-sede (credenciales OS TinyCore `tc`/`tc`). Desde esa shell se ejecutaron los SSH reales con origen `.50.3`.
 * **Validación admin-sucursal completa (2026-09-09):** `.50.3` → `.50.10`/`.50.1` LOGIN OK (`#` + `show clock`); `.50.3` → `.30.5`/`.20.10` DENEGADO (`No route`, SSH-L3-SEDE de Router-1). Cierra el PENDIENTE de confirmación de acceso de la sucursal.
 * El tráfico **originado por el propio router NO atraviesa sus ACLs outbound en IOS** (los casos origen-router se validaron transitando y/o con routers remotos; coherente con la matriz).
+
+## Cajas de caja (OS con Firefox, usuario `admin`) — 2026-09-09
+* **caja-sede `172.16.10.4`** y **caja-sucursal `172.16.40.3`** ahora idénticas: TinyCore con **Firefox**, usuario OS `admin`/4170 (uid 1002), sshd en cada boot, getty serial `ttyS0` (`gns3`/`gns3`), IP/gw propios aplicados por `bootlocal.sh`.
+* Imágenes registradas en GNS3 (md5 real en sidecar `.md5sum`):
+  * `linux-tinycore-caja-sede-ssh.img` — md5 `dea376c364240db5bcf59424f79db1f3`. **Endurecida 2026-09-09**: la base anterior solo tenía `etc/shadow` en su mydata (sin `admin`) — si GNS3 regeneraba el overlay (hash distinto), la sede perdía `admin`. Ahora la imagen es autocontenida (passwd/shadow/group reales extraídos de la sede viva + `home/admin` + entradas en `.filetool.lst`).
+  * `linux-tinycore-caja-suc-firefox.img` — md5 `a683c234f4f05b6b0b8f00ca1877458e`. Reemplaza al intento previo sobre base TC11 (`linux-tinycore-caja-suc-ssh.qcow2`): TC11 no trae navegador y su `ttyS0` no levantaba getty. Se partió de la base caja-sede (mydata de ronda funcional + identidad de usuario clonada) y solo se cambió la IP a `.40.3` (gw `.40.1`).
+* Nodos: caja-sede (`e5a409b1`) hda **`ide`**, RAM 256; caja-sucursal (`ad8bb62d`) hda **`ide`** (el base TC6 no porta a virtio; se igualó al de la sede), RAM **512** (Firefox).
+* Método (offline, sin tocar red): edición del `mydata.tgz` vía `debugfs` en la partición (offset de 32 sectores) → sector/escribe en la imagen raw cruda → `dd` de vuelta; password `admin` en shadow (**DES** `QybpzxVPEy.yE` = 4170), homóloga a la sede.
+* **Verificación 2026-09-09 (real, desde admin-sede):** ping a `172.16.40.3` OK; `ssh admin@172.16.40.3` con 4170 → `uid=1002(admin)`, `inet addr:172.16.40.3`; serial de la caja-suc muestra login (`Core Linux ... box login`). Sede: `ssh admin@172.16.10.4` → `uid=1002(admin)`, `inet 172.16.10.4` tras re-imagen endurecida. Portal `http://172.16.30.5` responde HTML "Banco 1 - Portal Interno" desde la red → la caja-suc puede abrirlo con Firefox por VNC `:5905` (pendiente de confirmación visual por el usuario).
 
 ## Verificación global del anillo
 Re-verificación completa (2026-09-08 ~00:25-00:35 UTC-6, post-rearranque limpio del nodo con config durable v8.1) ejecutada desde el nodo B1.
@@ -272,6 +281,7 @@ Re-verificación 2026-09-08 post-restart (ping 2/2 con `repeat 2 timeout 2`, sal
 * Limitación track line-protocol: no detecta caída de vecino con L1/L2 sano (ver "muerto en caliente" de `.12/30`).
 
 ## Cambios recientes
+* 2026-09-09: **cajas de caja convergidas (re-imagen de la sucursal y endurecimiento de la sede).** caja-sucursal `172.16.40.3` re-imagenada desde la base Firefox/TC6 de la sede (misma identidad de usuarios: `admin`/4170 uid 1002, `gns3`/`gns3`, `tc` sin password) con IP `.40.3`/gw `.40.1`; nodo GNS3 `ad8bb62d` apuntado a `linux-tinycore-caja-suc-firefox.img` (md5 `a683c234...`), hda `ide`, RAM 200→**512**; overlay regenerado y arranque verificado (serial `box login`, SSH `admin` uid 1002, ping, portal `172.16.30.5` OK). caja-sede endurecida: imagen `linux-tinycore-caja-sede-ssh.img` reconstruida con identidad autocontenida (md5 `dea376c3...`, propiedad GNS3 corregida del valor stale a ambos md5 reales), rearrancada y verificada (SSH `admin` uid 1002, IP `.10.4`, serial login OK). Imagen TC11 intermedia `linux-tinycore-caja-suc-ssh.qcow2` retirada (sin Firefox y sin getty serial). Sin cambios de red.
 * 2026-09-07: redefinición de rutas de anillo v7 (arco corto/largo + wraps) y tracks `line-protocol`; SLA eliminados.
 * 2026-09-07: reconexión del cable físico del enlace este (B5).
 * 2026-09-07/08: **fix de config → versión canónica v8.1**: eliminado el wrap `10.0.0.16/30 via 10.0.0.2 20 track 1` (riesgo de loop B1↔B2) y el residual `ip route 10.0.0.4 via 10.0.0.2` sin track; añadido `no shutdown` explícito en Gi0/0-3 para rearranques limpios. Inyectado en el config-disk `IOSv_startup_config.img` (master + overlay del nodo).
