@@ -1,8 +1,47 @@
 # Banco 1 (Banca minorista con sucursales)
 
 ## Estado
-Última actualización: 2026-09-08 (config v8.5 E2E con Local PBR + endpoint `/interbancaria` + apartado "Transferencia a Banco 2" + blacklist redundante `10.0.0.1:8080`/`10.0.0.18:8080` persistida en config-disk master + boot-test)
+Última actualización: 2026-09-09 (config v8.5 E2E con Local PBR + endpoint `/interbancaria` + apartado "Transferencia a Banco 2" + blacklist redundante `10.0.0.1:8080`/`10.0.0.18:8080` persistida + **política SSH solo-administración aplicada y validada en topología LAN completa**)
 Agente/responsable: Agente Banco 1
+
+## Política de acceso SSH (solo redes de administración) — APLICADA 2026-09-09
+
+### Regla aprobada por el usuario
+* `172.16.20.0/24` (ADMIN_SEDE) → SSH a **absolutamente todo el banco** (sede + sucursal).
+* `172.16.50.0/24` (ADMIN_SUCURSAL) → SSH **solo a su propia sucursal**: red caja `172.16.40.0/28`, Router-sucursal-1 y Switch-sucursal-1. Sin acceso a la sede.
+* Ninguna otra red (caja, servidores, interbancaria) puede iniciar SSH.
+* Alcance: toda la topología. Enforce central en routers (ACL L3 por segmento) + access-class por dispositivo + SVI de administración en switches.
+
+### Implementación en los 6 dispositivos IOS de la LAN
+* Usuarios: `username admin privilege 15 secret <pw>` + `enable secret <pw>` en todos; `ip domain-name banco1.local`; `ip ssh version 2`; `crypto key generate rsa` (dentro de `conf t`).
+* `line vty 0 4`: `login local` + `transport input ssh` + `access-class SSH-ADMIN in`.
+* ACL **`SSH-ADMIN`** (standard): sede (Router-1, Router-2, Switch-sede, Router-salida) = `permit 172.16.20.0/24` + `deny any`; sucursal (Router-sucursal, Switch-sucursal) = `permit 172.16.20.0/24` + `permit 172.16.50.0/24` + `deny any`.
+* ACL **`SSH-L3-SEDE`** (extended, aplicada **out** en Gi0/0.10, Gi0/0.20 y Gi0/0.30 de Router-1 y Router-2): `permit tcp 172.16.20.0/24` → cada segmento de la sede (`172.16.10.0/28`, `172.16.20.0/24`, `172.16.30.0/29`) `eq 22`; `deny tcp any` → esos tres `eq 22`; `permit ip any any` (no interfiere con el tráfico de negocio).
+* ACL **`SSH-L3-SUC`** (extended, aplicada **out** en Gi0/0.40 y Gi0/0.50 de Router-sucursal): `permit tcp 172.16.20.0/24` y `172.16.50.0/24` → `172.16.40.0/28` y `172.16.50.0/24` `eq 22`; `deny tcp any` → ambos `eq 22`; `permit ip any any`.
+* SVI de gestión en switches: Switch-sede `Vlan20 172.16.20.10/24` (gw `172.16.20.1`); Switch-sucursal `Vlan50 172.16.50.10/24` (gw `172.16.50.1`).
+* Router-salida: SSH+ACL solo administración, **sin tocar** NAT/rutas/tracks/servicios (config de red intacta).
+* Hostnames renombrados para permitir RSA: `Router-1-sede-central`, `Router-2-sede-central`, `Switch-sede-central`, `Router-sucursal-1`, `Switch-sucursal-1`.
+
+### Matriz de validación (2026-09-09, tráfico transitado real)
+| # | Origen → Destino:22 | Esperado | Resultado |
+|---|---|---|---|
+| 1 | admin-sede (172.16.20.4) → Switch-sede (.20.10) | PERMITIDO | **OK** (nc RC=0; banner SSH-2.0-Cisco) |
+| 2 | admin-sede → Servidor-web (.30.5) | PERMITIDO | **OK** (nc RC=0) |
+| 3 | admin-sede → Switch-sucursal (.50.10) | PERMITIDO | **OK** (nc RC=0 tras fix de ruta, ver abajo) |
+| 4 | admin-sede → Router-salida (10.10.2.1) | PERMITIDO | **OK** (nc RC=0; banner SSH-2.0-Cisco) |
+| 5 | caja-sede (.10.x, R1) → Switch-sede :22 | DENEGADO | **OK** (timeout by ACL) |
+| 6 | servidor-sede (.30.x) → Router-salida :22 | DENEGADO | **OK** (refused por access-class) |
+| 7 | admin-sucursal (.50.1) → Switch-sucursal (.50.10) | PERMITIDO | **OK** (banner SSH-2.0-Cisco) |
+| 8 | caja-sucursal (.40.1) → Switch-sucursal :22 | DENEGADO | **OK** (refused por access-class) |
+| 9 | admin-sucursal (.50.1) → Servidor-web sede (.30.5) | DENEGADO | **OK** (unreachable por SSH-L3-SEDE en Router-1) |
+
+### Corrección aplicada durante la validación
+* El Switch-sucursal no respondía tráfico cross-segmento (`ip default-gateway` no electado como gateway de last resort). Fix de gestión: `no ip default-gateway` + `ip route 0.0.0.0 0.0.0.0 172.16.50.1` → `Gateway of last resort is 172.16.50.1`; ping cross-subnet y SSH desde admin-sede verificados después. Persistido (`write memory`).
+
+### Notas de validación
+* El tráfico **originado por el propio router NO atraviesa sus ACLs outbound en IOS** (pruebas desde R1 con `source-interface` no validan la ACL propia; deben generarse desde un host transitado o un router remoto). Los casos de la matriz coherentes con esto: los denegados por L3 se validaron con tráfico real desde la sucursal (Router-sucursal) hacia la sede.
+* Password de gestión NO se documenta aquí (regla de secretos del anillo). Contraseña: solo en `/tmp/opencode/.ssh_admin_b1.txt` del nodo (fuera del repo).
+* `% Hostname "...LAT..."` advertence → inofensivo en IOSv.
 
 ## Verificación global del anillo
 Re-verificación completa (2026-09-08 ~00:25-00:35 UTC-6, post-rearranque limpio del nodo con config durable v8.1) ejecutada desde el nodo B1.
