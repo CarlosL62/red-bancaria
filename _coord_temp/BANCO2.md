@@ -1,7 +1,7 @@
 # Banco 2 (Banca de inversión)
 
 ## Estado
-Última actualización: 2026-09-08 (reconstrucción IP SLA/tracks/rutas siguiendo GUIA_SONDEO_END_TO_END.md de Banco 4)
+Última actualización: 2026-09-10 (refactor IP SLA/tracks alineado a GUIA_SONDEO_END_TO_END_BANCO5.md de Banco 5)
 Agente/responsable: Agente Banco 2 (R-WAN)
 
 ## Interfaces de tránsito
@@ -35,13 +35,14 @@ ip route 10.0.0.0 255.255.255.224 Null0 250     ! descarte del anillo (protecci�
 ```
 > Las flotantes existen siempre pero quedan inactivas por AD; asumen instantáneamente cuando el track de la primaria la retira. El `Null0 /27` evita que tráfico interbancario se filtre al ISP solo si no hay ruta más específica.
 
-## IP SLA (reconstruidos E2E, 2026-09-08)
-Reemplaza los 6 SLAs + tracks boolean anteriores. Período de sonda 3 s, timeout/threshold 1000 ms, agendadas `life forever start-time now`:
+## IP SLA (refactor 2026-09-10, alineado a la guía de Banco 5)
+Reemplaza los 6 SLAs + tracks boolean anteriores. **Temporización conservadora de Banco 5**: `frequency 5`, timeout/threshold por defecto (5000 ms) — en vez de la plantilla agresiva de Banco 4 (`frequency 3`, `timeout 1000 ms`) que causaba flapping (fallos acumulados en sondas). Agendadas `life forever start-time now`:
 ```text
-ip sla monitor 10: type echo 10.0.0.10 source-interface FastEthernet3/0  ! B4 vía B3 (E2E sur)
-ip sla monitor 20: type echo 10.0.0.17 source-interface FastEthernet2/0  ! B5 vía B1 (E2E norte)
+ip sla monitor 10: type echo 10.0.0.10 source-interface FastEthernet3/0  ! B4 vía B3 (E2E sur)   frequency 5, timeout 5000
+ip sla monitor 20: type echo 10.0.0.17 source-interface FastEthernet2/0  ! B5 vía B1 (E2E norte) frequency 5, timeout 5000
 ```
 > El objetivo del sondeo ya no es solo el vecino directo (salto 1), sino el **vecino del vecino** (salto 2): B4 (10.0.0.10) y B5 (10.0.0.17).
+> Referencia: `docs/GUIA_SONDEO_END_TO_END_BANCO5.md` (secciones 5-7, 10) — Banco 5 midió picos de RTT >1000 ms en el anillo; por eso `frequency 5` + timeout por defecto + `delay down 10 up 5`.
 
 ## PBR local para las sondas (2026-09-08)
 Se ancla cada sonda con **Local PBR** (misma técnica que BANCO3 y BANCO5), no con rutas host `/32` (que romperían el failover del tráfico real hacia esos destinos):
@@ -60,13 +61,14 @@ ip local policy route-map RM-LOCAL-SLA
 ```
 > `ip local policy` solo aplica a los paquetes **originados por el router** (las sondas SLA), forzándolas a salir siempre por su cara (`10.0.0.6` la sur, `10.0.0.1` la norte). El tráfico de tránsito real sigue gobernado por la RIB (primarias trackeadas + flotantes AD100), por lo que cuando el track 10 cae (ej. corte B3-B4), el tráfico hacia `.8/30`/`.12/30` conmuta a la flotante via `10.0.0.1`. Verificado: hits en ambas entradas (secuencia 10 y 20).
 
-## Tracks (reconstruidos E2E, 2026-09-08)
+## Tracks (refactor 2026-09-10, alineado a la guía de Banco 5)
 ```text
-track 10 rtr 10 reachability   ! B4 vía B3 (E2E sur)   -> UP
-track 20 rtr 20 reachability   ! B5 vía B1 (E2E norte) -> UP
-track 10/20: delay down 6 up 3 (histéresis para amortiguar flaps)
+track 10 rtr 10 reachability   ! B4 vía B3 (E2E sur)   -> UP (con B1-B2 caído)
+track 20 rtr 20 reachability   ! B5 vía B1 (E2E norte) -> DOWN (B1-B2 caído — comportamiento esperado)
+track 10/20: delay down 10 up 5 (histéresis de Banco 5)
 ```
-> Histéresis `delay down 6 up 3`: el track necesita 6 s de fallos para bajar y 3 s de aciertos para subir, evitando flapping.
+> Histéresis `delay down 10 up 5`: el track necesita 10 s de fallos para bajar y 5 s de aciertos para subir, evitando flapping por un solo ping perdido (reemplaza el anterior `6/3`).
+> Con B1↔B2 caído, `track 20` queda Down y `10.0.0.16/30` usa la flotante AD 100 vía `10.0.0.6` (sur); al recuperarse B1↔B2 y con B1↔B5 sano, el track 20 sube solo (~5 s) y vuelve la primaria vía `10.0.0.1`.
 > Las sondas se amaran con Local PBR (sección "PBR local para las sondas"), no con rutas `/32`.
 
 ## PBR / Route Maps
@@ -75,15 +77,31 @@ Ninguno configurado. No hay `ip policy route-map`, ni route-maps aplicados a int
 ## NAT interbancario
 * `FastEthernet2/0` (10.0.0.2) y `FastEthernet3/0` (10.0.0.5): interfaces **outside**.
 * `FastEthernet0/0` (192.168.100.10) y `FastEthernet1/0` (10.20.0.1): interfaces **inside**.
+* **PAT por route-maps por cara (fix 2026-09-10, patrón de Banco 5):** antes había dos `list ... interface` planas cuya ACLs de origen coincidían (mismo rango `10.20.0.0/16`), por lo que la regla 101 (Fa2/0 → `10.0.0.2`) ganaba siempre aunque el egress fuera el **sur** (Fa3/0) — el retorno de B4 a `10.0.0.2` llegaba por la cara sur y R-WAN lo descartaba (IP local de la cara norte) → curl a `10.0.0.10:8080` fallaba. Con route-maps las ACLs son **mutuamente excluyentes por destino**: cada cara traduce solo sus redes de tránsito.
 ```text
-access-list 101 permit ip 10.20.0.0 0.0.255.255 any     ! LAN interna saliente
-access-list 102 permit ip 10.20.0.0 0.0.255.255 any
+ip access-list extended ACL-NAT-NORTE
+ permit ip 10.20.0.0 0.0.255.255 10.0.0.0 0.0.0.3      ! B1 (Fa2/0 directo) — PAT norte -> 10.0.0.2
+ip access-list extended ACL-NAT-SUR
+ permit ip 10.20.0.0 0.0.255.255 10.0.0.4 0.0.0.3      ! B3 (Fa3/0 directo)
+ permit ip 10.20.0.0 0.0.255.255 10.0.0.8 0.0.0.3      ! B4 vía B3 (sur)
+ permit ip 10.20.0.0 0.0.255.255 10.0.0.12 0.0.0.3     ! B5 vía B3/B4 (sur)
+ permit ip 10.20.0.0 0.0.255.255 10.0.0.16 0.0.0.3     ! B5/B1 vía sur (ver nota de flip)
+route-map NAT-NORTE permit 10
+ match ip address ACL-NAT-NORTE
+route-map NAT-SUR permit 10
+ match ip address ACL-NAT-SUR
 
-ip nat inside source list 101 interface FastEthernet2/0 overload   ! PAT saliente hacia B1
-ip nat inside source list 102 interface FastEthernet3/0 overload   ! PAT saliente hacia B3
-ip nat inside source static tcp 10.20.1.34 5001 interface FastEthernet2/0 5001  ! publicación
+ip nat inside source route-map NAT-SUR interface FastEthernet3/0 overload   ! PAT sur -> 10.0.0.5
+ip nat inside source route-map NAT-NORTE interface FastEthernet2/0 overload  ! PAT norte -> 10.0.0.2
+ip nat inside source static tcp 10.20.1.34 5001 10.0.0.2 5001 extendable    ! publicación (norte)
+ip nat inside source static tcp 10.20.1.34 5001 10.0.0.5 5001 extendable    ! publicación (sur)
 ```
-> ACLs 1, 101, 102, 199 definidas localmente pero **no** aplicadas con `ip access-group` (solo se usan en NAT).
+> **Flip dinámico por estado del anillo (2026-09-10):** la red `10.0.0.16/30` (B5 este / B1 este) tiene **dos caminos activos** según el estado: primaria **norte** vía `10.0.0.1` (track 20) y backup **sur** vía `10.0.0.6` (AD 100). Como el route-map NAT no puede depender del track, la ACL debe reflejar la **cara que está activa** en cada momento:
+> - Con B1↔B2 **caído** (track 20 Down, estado actual) → `10.0.0.16/30` en **ACL-NAT-SUR** (ya aplicado).
+> - Cuando B1↔B2 se **restaure** (track 20 Up) → mover `10.0.0.16/30` de vuelta a **ACL-NAT-NORTE** (de lo contrario el egress norte traduciría a `10.0.0.5` y el retorno se perdería).
+> Síntomas típicos de ACL desincronizada: `debug ip nat` muestra `s=10.20.1.34->10.0.0.X, d=<destino>` con la X de la cara equivocada, y el acceso desde LAN a los bancos del arco este hace timeout.
+> Verificado 2026-09-10 (B1↔B2 caído): curl `10.20.1.34 → 10.0.0.10:8080` y `→ 10.0.0.18:8080` traducen a `10.0.0.5` por `NAT-SUR` y devuelven **HTTP 200** (`/blacklist`, `SRV-ARCHIVOS` de B1 este). Traducciones vivas `tcp 10.0.0.5:x ↔ 10.0.0.18:8080`; ACL-NAT-SUR líneas `.8/30` y `.16/30` con matches.
+> ACLs 1, 101, 102, 199 (legacy) siguen definidas pero sin uso en NAT (solo se usaban en las `list 101/102` ya retiradas).
 
 ## Servicios interbancarios publicados
 * Publicación TCP `10.0.0.2:5001` -> `10.20.1.34:5001` (estática). Estado del servicio interno: PENDIENTE DE CONFIRMACIÓN POR BANCO 2.
